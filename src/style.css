@@ -1,0 +1,1858 @@
+/* ==========================================================================
+   NUTRIEQUIV PRO - SISTEMA DE DISEÑO VERDE OSCURO PROFUNDO (ESTILO POWERPOINT)
+   ========================================================================== */
+
+:root {
+  /* Paleta cromática ejecutiva / clínica */
+  --bg-app: #0a0f12;
+  --bg-surface: #111a1f;
+  --bg-surface-elevated: #162229;
+  --bg-surface-hover: #1e2e38;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-card: rgba(255, 255, 255, 0.12);
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-sub: #64748b;
+
+  /* Verde Oscuro Profundo (Forest / Esmeralda Oscuro de Lujo) */
+  --forest-dark: #0f2720;
+  --forest-base: #14352b;
+  --forest-medium: #1b4337;
+  --forest-border: #245748;
+  --forest-accent: #2d6a4f;
+  --forest-light-tint: #eaf4f0;
+
+  /* Colores de grupos nutricionales */
+  --color-starch: #d97706;
+  --color-protein: #2563eb;
+  --color-fat: #15803d;
+  --color-fruit: #dc2626;
+  --color-dairy: #0891b2;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 9999px;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-slide: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  min-height: 100vh;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   TOP NAV
+   ========================================================================== */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  background: rgba(17, 26, 31, 0.9);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--forest-medium), var(--forest-dark));
+  border: 1px solid var(--forest-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(27, 67, 55, 0.5);
+}
+
+.brand-logo-emoji {
+  font-size: 24px;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.brand-badge {
+  background: var(--forest-accent);
+  color: #fff;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.brand-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-surface);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  background: var(--forest-base);
+  color: #ffffff;
+  border: 1px solid var(--forest-border);
+  box-shadow: 0 2px 10px rgba(20, 53, 43, 0.6);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--forest-medium), var(--forest-dark));
+  border: 1px solid var(--forest-border);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--forest-accent), var(--forest-medium));
+  transform: translateY(-1px);
+}
+
+.btn-glow {
+  box-shadow: 0 4px 16px rgba(27, 67, 55, 0.5);
+}
+
+.btn-secondary {
+  background: var(--bg-surface-elevated);
+  color: var(--text-main);
+  border: 1px solid var(--border-card);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-surface-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #a7f3d0;
+  border: 1px solid var(--forest-border);
+}
+
+.btn-outline:hover {
+  background: rgba(45, 106, 79, 0.25);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* ==========================================================================
+   VISTAS Y GRID
+   ========================================================================== */
+.main-content {
+  flex: 1;
+  padding: 24px 28px;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.view-panel {
+  display: none;
+  animation: fadeIn 0.25s ease forwards;
+}
+
+.view-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1280px) {
+  .editor-grid {
+    grid-template-columns: 340px 1fr;
+  }
+
+  .metrics-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 860px) {
+  .editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.panel-card:hover {
+  border-color: var(--border-card);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+}
+
+.card-hint {
+  font-size: 0.75rem;
+  color: var(--text-sub);
+}
+
+.card-body {
+  padding: 22px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--forest-accent);
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.35);
+}
+
+.preset-selector-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-card);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+}
+
+.optimizer-box {
+  background: linear-gradient(135deg, rgba(20, 53, 43, 0.3) 0%, rgba(10, 20, 16, 0.9) 100%);
+  border: 1px solid var(--forest-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-top: 18px;
+}
+
+.optimizer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.opt-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #a7f3d0;
+}
+
+.opt-badge {
+  background: var(--forest-dark);
+  border: 1px solid var(--forest-border);
+  color: #a7f3d0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.opt-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  margin-bottom: 6px;
+}
+
+.slider-header strong {
+  color: #a7f3d0;
+  font-size: 1rem;
+}
+
+.form-range {
+  width: 100%;
+  accent-color: var(--forest-accent);
+  cursor: pointer;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 12px 0;
+}
+
+.checkbox-label input {
+  margin-top: 3px;
+  accent-color: var(--forest-accent);
+}
+
+/* Portions controls */
+.section-lead {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.portions-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.portion-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.portion-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.portion-card-starch {
+  border-left: 4px solid var(--color-starch);
+}
+
+.portion-card-protein {
+  border-left: 4px solid var(--color-protein);
+}
+
+.portion-card-fat {
+  border-left: 4px solid var(--color-fat);
+}
+
+.portion-card-fruit {
+  border-left: 4px solid var(--color-fruit);
+}
+
+.portion-card-dairy {
+  border-left: 4px solid var(--color-dairy);
+}
+
+.pc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pc-badge-icon {
+  font-size: 24px;
+}
+
+.pc-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pc-name {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.pc-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.pc-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.step-btn {
+  width: 38px;
+  height: 36px;
+  background: transparent;
+  color: #ffffff;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.step-btn:active {
+  transform: scale(0.92);
+}
+
+.step-input {
+  width: 50px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.step-input:focus {
+  outline: none;
+}
+
+.step-input::-webkit-outer-spin-button,
+.step-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pc-summary {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.meals-config-section {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 20px;
+}
+
+.meals-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sub-title {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.meals-builder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meal-row-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .meal-row-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.meal-row-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #ffffff;
+}
+
+.meal-row-portions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mini-portion-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+}
+
+.mini-portion-control span {
+  color: var(--text-muted);
+}
+
+.mini-portion-control input {
+  width: 32px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Metrics Live */
+.calories-hero-badge {
+  text-align: center;
+  background: linear-gradient(135deg, rgba(20, 53, 43, 0.4) 0%, rgba(10, 20, 16, 0.8) 100%);
+  border: 1px solid var(--forest-border);
+  border-radius: var(--radius-lg);
+  padding: 24px 16px;
+  margin-bottom: 20px;
+}
+
+.cal-hero-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #a7f3d0;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.cal-hero-number {
+  font-family: var(--font-heading);
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(20, 53, 43, 0.7);
+}
+
+.cal-hero-unit {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.macro-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.metric-row {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.metric-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.macro-badge-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.pill-carbs {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.pill-protein {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.pill-fat {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.metric-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+}
+
+.bar-fill-carbs {
+  background: var(--color-starch);
+}
+
+.bar-fill-protein {
+  background: var(--color-protein);
+}
+
+.bar-fill-fat {
+  background: var(--color-fat);
+}
+
+.metric-row-sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.nutrition-tips-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.status-alert.alert-success {
+  color: #34d399;
+}
+
+.status-alert.alert-warning {
+  color: #fbbf24;
+}
+
+.status-alert.alert-info {
+  color: #60a5fa;
+}
+
+/* ==========================================================================
+   VISTA DE DOCUMENTO EN DIAPOSITIVAS (16:9, VERDE OSCURO PROFUNDO, SIN SCROLL)
+   ========================================================================== */
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  padding: 14px 24px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+}
+
+.preview-badge {
+  background: var(--forest-dark);
+  border: 1px solid var(--forest-border);
+  color: #a7f3d0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  margin-right: 12px;
+}
+
+.preview-subtext {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.preview-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.print-tip-banner {
+  background: rgba(20, 53, 43, 0.4);
+  border: 1px solid var(--forest-border);
+  color: #d1fae5;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin-bottom: 20px;
+}
+
+.print-tip-banner strong {
+  color: #a7f3d0;
+}
+
+.print-tip-banner em {
+  font-style: normal;
+  text-decoration: underline;
+  color: #ffffff;
+}
+
+.document-viewport {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 30px 10px 80px;
+  background: #060b0e;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+.slides-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  width: 1040px;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+/* Diapositiva 16:9 Base - FIJADA A 1040x585 (16:9 EXACTO) SIN DISTORSIÓN */
+.slide-card {
+  width: 1040px;
+  height: 585px;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  position: relative;
+  overflow: hidden;
+  /* Sin scrollbars */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 32px 44px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Diapositiva Verde Oscuro Profundo (Forest) */
+.slide-forest-dark {
+  background-color: var(--forest-base);
+  color: #ffffff;
+}
+
+/* Diapositiva Blanca */
+.slide-white {
+  background-color: #ffffff;
+  color: #1e293b;
+}
+
+.slide-bottom-brand {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.04em;
+  margin-top: auto;
+  text-align: left;
+}
+
+.slide-white .slide-bottom-brand {
+  color: #94a3b8;
+}
+
+/* Portada */
+.slide-cover {
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.slide-cover-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: auto;
+}
+
+/* Logo Oficial Contreras Nutricion Fit */
+.brand-image-logo-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.brand-image-logo {
+  width: 290px;
+  height: 290px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cover-doc-date {
+  padding-top: 32px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+/* SLIDE 2: MACROS SUMMARY */
+.slide-content-split {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+}
+
+.slide-left-col {
+  width: 65%;
+}
+
+.slide-script-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 3.2rem;
+  font-weight: 800;
+  font-style: italic;
+  color: #ffffff;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.slide-patient-tag {
+  font-size: 1.2rem;
+  color: #d1fae5;
+  margin-bottom: 16px;
+}
+
+.slide-calories-bubble {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 18px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 20px;
+}
+
+.bubble-num {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.bubble-unit {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.slide-bars-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.macro-pill-bar {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 6px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.mp-value {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.mp-label {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.mp-ratio {
+  font-size: 0.82rem;
+  color: var(--forest-accent);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.slide-right-col-side {
+  width: 30%;
+}
+
+.totals-pill-box {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tpb-title {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #a7f3d0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+
+.tpb-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+
+.tpb-item strong {
+  font-size: 1.15rem;
+  color: #ffffff;
+}
+
+/* SLIDE 3: PLAN DE COMIDAS */
+.slide-page-title-white {
+  font-family: var(--font-heading);
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+
+.slide-page-sub-white {
+  font-size: 0.82rem;
+  color: #d1fae5;
+  margin-bottom: 18px;
+}
+
+.meals-grid-four {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.meal-column-card {
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mcc-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.mcc-step {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #a7f3d0;
+  display: block;
+}
+
+.mcc-name {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.mcc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcc-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #f1f5f9;
+}
+
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dot-yellow {
+  background: #f59e0b;
+}
+
+.dot-blue {
+  background: #3b82f6;
+}
+
+.dot-green {
+  background: #10b981;
+}
+
+.dot-red {
+  background: #ef4444;
+}
+
+.dot-cyan {
+  background: #06b6d4;
+}
+
+.text-soft {
+  color: #a7f3d0 !important;
+  font-size: 0.72rem;
+  margin-top: 4px;
+}
+
+.meal-bottom-tip {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #e2e8f0;
+}
+
+/* SLIDE 4: PLAN DE COMIDAS & TABLA DE ALIMENTOS EN 1 SOLA HOJA (SIN SCROLLBARS) */
+.slide-split-compact {
+  padding: 0 !important;
+  display: grid;
+  grid-template-columns: 28% 72%;
+  background: #ffffff;
+  overflow: hidden !important;
+}
+
+.plan-compact-sidebar {
+  background-color: var(--forest-base);
+  color: #ffffff;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.sidebar-title-compact {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.meal-mini-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mmb-name {
+  font-family: var(--font-heading);
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #a7f3d0;
+}
+
+.mmb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 4px;
+}
+
+.mmb-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  color: #f1f5f9;
+}
+
+.powder-protein-box {
+  margin-top: auto;
+  font-size: 0.58rem;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 6px 8px;
+  border-radius: 4px;
+  line-height: 1.3;
+  color: #d1fae5;
+}
+
+/* Columna Derecha: Tabla Completa de Alimentos */
+.table-compact-content {
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow: hidden !important;
+}
+
+.tcc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1.5px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.tcc-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tcc-title {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.tcc-subtitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.tcc-legend-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.chip-legend {
+  font-size: 0.56rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.chip-green {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.chip-amber {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.chip-blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.tcc-columns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tcc-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tcc-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.tcc-gtitle {
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.color-green {
+  color: #16a34a;
+}
+
+.color-cyan {
+  color: #0891b2;
+}
+
+.color-red {
+  color: #dc2626;
+}
+
+.color-blue {
+  color: #2563eb;
+}
+
+.color-purple {
+  color: #7c3aed;
+}
+
+.color-orange {
+  color: #d97706;
+}
+
+.color-fat {
+  color: #059669;
+}
+
+.tcc-gbody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tcc-row {
+  font-size: 0.62rem;
+  color: #334155;
+  line-height: 1.25;
+}
+
+.tcc-row strong {
+  color: #0f172a;
+}
+
+.tcc-subrow {
+  font-size: 0.58rem;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.tcc-tag-label {
+  font-size: 0.56rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  display: inline-block;
+}
+
+.text-muted-food {
+  color: #64748b !important;
+}
+
+/* SLIDE 6: REGLAS E INDICACIONES */
+.rules-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.rules-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rule-diamond {
+  color: var(--forest-accent);
+  font-size: 0.9rem;
+  margin-top: 1px;
+}
+
+.rule-body strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.rule-body p {
+  font-size: 0.68rem;
+  color: #475569;
+  line-height: 1.35;
+  margin-top: 1px;
+}
+
+/* SLIDES 7 & 8: PLATOS VISUALES */
+.slide-meal-example {
+  padding: 26px 40px !important;
+}
+
+.example-split-layout {
+  display: grid;
+  grid-template-columns: 42% 58%;
+  gap: 20px;
+  height: 100%;
+  align-items: center;
+}
+
+.example-title {
+  font-family: var(--font-heading);
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--forest-dark);
+  text-decoration: underline;
+  text-decoration-color: #cbd5e1;
+  text-underline-offset: 5px;
+  margin-bottom: 10px;
+}
+
+.plate-illustration-box {
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.plate-svg-large {
+  width: 100%;
+  height: auto;
+}
+
+.options-headline {
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 8px;
+  border-bottom: 2px solid var(--forest-dark);
+  padding-bottom: 3px;
+}
+
+.opt-group-box {
+  margin-bottom: 6px;
+}
+
+.og-title {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-bottom: 1px;
+}
+
+.text-blue {
+  color: #2563eb;
+}
+
+.text-orange {
+  color: #d97706;
+}
+
+.text-green {
+  color: #16a34a;
+}
+
+.text-red {
+  color: #dc2626;
+}
+
+.text-emerald {
+  color: #059669;
+}
+
+.og-subhint {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.og-bullets {
+  list-style: disc;
+  padding-left: 16px;
+  font-size: 0.7rem;
+  color: #334155;
+  line-height: 1.3;
+}
+
+/* SLIDE 9: MERIENDA Y EQUIVALENCIAS */
+.snack-three-cols {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.snack-col-card {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.scc-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.scc-num {
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: block;
+}
+
+.scc-sub {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.scc-list {
+  list-style: disc;
+  padding-left: 14px;
+  font-size: 0.7rem;
+  color: #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.snack-col-sep {
+  display: flex;
+  align-items: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--forest-accent);
+}
+
+.snack-combos-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+}
+
+.combo-title {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.combo-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 14px;
+  font-size: 0.68rem;
+  color: #334155;
+}
+
+.equivalencies-footer-box {
+  display: flex;
+  justify-content: space-between;
+  background: var(--forest-light-tint);
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  color: #1e293b;
+  margin-top: 8px;
+}
+
+.efb-title {
+  font-weight: 800;
+  color: var(--forest-dark);
+}
+
+/* ==========================================================================
+   CATÁLOGO
+   ========================================================================== */
+.catalog-header-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.catalog-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.catalog-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.catalog-input {
+  max-width: 600px;
+  margin-bottom: 16px;
+}
+
+.catalog-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-tag {
+  padding: 6px 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-tag:hover {
+  color: #ffffff;
+  border-color: var(--forest-accent);
+}
+
+.filter-tag.active {
+  background: var(--forest-base);
+  color: #ffffff;
+  border-color: var(--forest-accent);
+}
+
+.catalog-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.food-item-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.food-item-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--forest-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.food-card-cat {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.food-card-name {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.food-card-portion {
+  font-size: 0.9rem;
+  color: #34d399;
+  font-weight: 600;
+}
+
+.food-card-detail {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   EXPORTACIÓN IMPRESIÓN Y PDF WIDESCREEN 16:9 (EXACTO 297mm x 167.06mm)
+   ========================================================================== */
+@media print {
+  @page {
+    size: 297mm 167.06mm;
+    margin: 0mm !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    width: 297mm !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 14px !important;
+  }
+
+  .top-nav,
+  .preview-toolbar,
+  .nav-tabs,
+  #view-editor,
+  #view-catalog,
+  .print-helper-toast,
+  .print-tip-banner {
+    display: none !important;
+  }
+
+  #view-preview {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .document-viewport {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .slides-deck {
+    gap: 0 !important;
+    max-width: 100% !important;
+    width: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .slide-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 297mm !important;
+    height: 167.06mm !important;
+    min-height: 167.06mm !important;
+    max-height: 167.06mm !important;
+    aspect-ratio: 16 / 9 !important;
+    margin: 0 !important;
+    padding: 12mm 18mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .slide-card:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* Diapositiva 4 dividida */
+  .slide-split-compact {
+    padding: 0 !important;
+    height: 167.06mm !important;
+    min-height: 167.06mm !important;
+    max-height: 167.06mm !important;
+  }
+
+  .plan-compact-sidebar {
+    padding: 10mm 8mm !important;
+  }
+
+  .table-compact-content {
+    padding: 10mm 14mm !important;
+  }
+}

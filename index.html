@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NutriEquiv Pro - Generador de Dietas por Equivalencias</title>
+  <meta name="description"
+    content="Generador profesional de planes de alimentación y dietas basados en el sistema de porciones e intercambios de macronutrientes." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body>
+  <div id="app" class="app-container">
+    <!-- BARRA SUPERIOR DE NAVEGACIÓN -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="brand-icon-wrapper">
+          <span class="brand-logo-emoji">🥑</span>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">NutriEquiv <span class="brand-badge">Pro</span></span>
+          <span class="brand-subtitle">Generador de Dietas por Equivalencias</span>
+        </div>
+      </div>
+
+      <!-- TABS DE VISTA -->
+      <nav class="nav-tabs" role="tablist">
+        <button id="tab-btn-editor" class="tab-btn active" data-tab="editor" role="tab">
+          <span class="tab-icon">⚙️</span>
+          <span>Editor del Plan</span>
+        </button>
+        <button id="tab-btn-preview" class="tab-btn" data-tab="preview" role="tab">
+          <span class="tab-icon">📄</span>
+          <span>Vista de Documento</span>
+        </button>
+        <button id="tab-btn-catalog" class="tab-btn" data-tab="catalog" role="tab">
+          <span class="tab-icon">🔍</span>
+          <span>Catálogo de Alimentos</span>
+        </button>
+      </nav>
+
+      <!-- ACCIONES GLOBALES -->
+      <div class="nav-actions">
+        <button id="btn-download-pdf-nav" class="btn btn-primary btn-glow"
+          title="Descargar archivo PDF en alta resolución directamente">
+          <span class="btn-icon">⚡</span>
+          <span>Descargar PDF (HD)</span>
+        </button>
+        <button id="btn-export-pdf" class="btn btn-secondary" title="Imprimir o guardar con el diálogo del navegador">
+          <span class="btn-icon">🖨️</span>
+          <span>Imprimir</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="main-content">
+      <!-- VISTA 1: EDITOR DEL PLAN -->
+      <section id="view-editor" class="view-panel active">
+        <div class="editor-grid">
+
+          <!-- COLUMNA 1: PACIENTE Y OPTIMIZADOR -->
+          <div class="panel-card patient-setup-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="card-title-icon">👤</span>
+                <span>Datos del Paciente</span>
+              </h2>
+              <span class="card-hint">Parámetros base</span>
+            </div>
+
+            <div class="card-body">
+              <div class="form-group">
+                <label for="input-patient-name" class="form-label">Nombre del Paciente</label>
+                <input type="text" id="input-patient-name" class="form-input" value="Génesis Ortiz"
+                  placeholder="Ej: María Pérez" />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-weight" class="form-label">Peso Corporal (kg)</label>
+                  <input type="number" id="input-weight" class="form-input" value="55" min="30" max="250" step="0.5" />
+                </div>
+                <div class="form-group">
+                  <label for="input-goal" class="form-label">Objetivo Principal</label>
+                  <select id="input-goal" class="form-select">
+                    <option value="Superávit Limpio (Hipertrofia)">Superávit Limpio (Hipertrofia)</option>
+                    <option value="Recomposición Corporal / Diet Break">Recomposición / Diet Break</option>
+                    <option value="Mantenimiento Energético">Mantenimiento Energético</option>
+                    <option value="Definición / Pérdida de Grasa">Definición / Pérdida Grasa</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- PRESETS RÁPIDOS -->
+              <div class="preset-selector-box">
+                <label class="form-label">Cargar Distribución Preconfigurada</label>
+                <select id="select-preset" class="form-select select-accent">
+                  <option value="custom">-- Selecciona una plantilla --</option>
+                  <!-- Se llena dinámicamente -->
+                </select>
+              </div>
+
+              <!-- OPTIMIZADOR INTELIGENTE (SOLVER) -->
+              <div class="optimizer-box">
+                <div class="optimizer-header">
+                  <span class="opt-title">✨ Optimizador Automático</span>
+                  <span class="opt-badge">Auto-Solver</span>
+                </div>
+                <p class="opt-desc">Calcula la combinación exacta de porciones para un objetivo de calorías dado:</p>
+                <div class="form-group">
+                  <div class="slider-header">
+                    <span>Meta Calórica:</span>
+                    <strong id="opt-kcal-display">2000 kcal</strong>
+                  </div>
+                  <input type="range" id="slider-target-kcal" class="form-range" min="1300" max="3200" step="50"
+                    value="2000" />
+                </div>
+                <div class="form-checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="check-ibs-mode" />
+                    <span>Modo Intestino Irritable (bajar carbohidratos/volumen y subir grasas saludables)</span>
+                  </label>
+                </div>
+                <button id="btn-auto-solve" class="btn btn-secondary btn-full">
+                  ⚡ Auto-Ajustar Porciones a esta Meta
+                </button>
+              </div>
+
+              <!-- PERSONALIZACIÓN DE CABECERA Y NOTAS -->
+              <div class="form-group" style="margin-top: 15px;">
+                <label for="input-clinic-name" class="form-label">Nombre del Profesional / Consulta</label>
+                <p id="name-nutritionist">Jesús Contreras</p>
+              </div>
+
+              <div class="form-group">
+                <label for="input-patient-notes" class="form-label">Nota o Indicación Especial</label>
+                <textarea id="input-patient-notes" class="form-textarea" rows="2"
+                  placeholder="Ej: Mantener alta hidratación, evitar lácteos enteros antes de entrenar..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMNA 2: ASIGNADOR DE BLOQUES Y COMIDAS -->
+          <div class="panel-card portions-planner-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="card-title-icon">⚖️</span>
+                <span>Porciones Diarias (Sistema de Equivalencias)</span>
+              </h2>
+              <div class="header-badges">
+                <span id="total-portions-count-badge" class="badge badge-info">32 Porciones</span>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <p class="section-lead">Ajusta los bloques diarios. Cada cambio recalcula instantáneamente los
+                macronutrientes:</p>
+
+              <!-- SELECTORES DE PORCIONES DIARIAS -->
+              <div class="portions-controls-grid">
+                <!-- ALMIDONES -->
+                <div class="portion-card portion-card-starch">
+                  <div class="pc-top">
+                    <div class="pc-badge-icon">🌾</div>
+                    <div class="pc-info">
+                      <strong class="pc-name">Almidones</strong>
+                      <span class="pc-sub">17.25g C • 1.5g P • 0.5g G (~80 kcal)</span>
+                    </div>
+                  </div>
+                  <div class="pc-stepper">
+                    <button class="step-btn step-minus" data-portion="starch" aria-label="Restar almidón">−</button>
+                    <input type="number" id="input-portion-starch" class="step-input" value="9" min="0" max="30" />
+                    <button class="step-btn step-plus" data-portion="starch" aria-label="Sumar almidón">+</button>
+                  </div>
+                  <div class="pc-summary" id="sum-starch">155.3g C • 13.5g P • 716 kcal</div>
+                </div>
+
+                <!-- PROTEÍNAS -->
+                <div class="portion-card portion-card-protein">
+                  <div class="pc-top">
+                    <div class="pc-badge-icon">🍗</div>
+                    <div class="pc-info">
+                      <strong class="pc-name">Proteínas</strong>
+                      <span class="pc-sub">0g C • 8g P • 2.5g G (~55 kcal)</span>
+                    </div>
+                  </div>
+                  <div class="pc-stepper">
+                    <button class="step-btn step-minus" data-portion="protein" aria-label="Restar proteína">−</button>
+                    <input type="number" id="input-portion-protein" class="step-input" value="9" min="0" max="30" />
+                    <button class="step-btn step-plus" data-portion="protein" aria-label="Sumar proteína">+</button>
+                  </div>
+                  <div class="pc-summary" id="sum-protein">0g C • 72.0g P • 491 kcal</div>
+                </div>
+
+                <!-- GRASAS -->
+                <div class="portion-card portion-card-fat">
+                  <div class="pc-top">
+                    <div class="pc-badge-icon">🥑</div>
+                    <div class="pc-info">
+                      <strong class="pc-name">Grasas Saludables</strong>
+                      <span class="pc-sub">0g C • 0g P • 5g G (45 kcal)</span>
+                    </div>
+                  </div>
+                  <div class="pc-stepper">
+                    <button class="step-btn step-minus" data-portion="fat" aria-label="Restar grasa">−</button>
+                    <input type="number" id="input-portion-fat" class="step-input" value="11" min="0" max="30" />
+                    <button class="step-btn step-plus" data-portion="fat" aria-label="Sumar grasa">+</button>
+                  </div>
+                  <div class="pc-summary" id="sum-fat">0g C • 0g P • 495 kcal</div>
+                </div>
+
+                <!-- FRUTAS -->
+                <div class="portion-card portion-card-fruit">
+                  <div class="pc-top">
+                    <div class="pc-badge-icon">🍎</div>
+                    <div class="pc-info">
+                      <strong class="pc-name">Frutas (1 Fruta = 1 Almidón)</strong>
+                      <span class="pc-sub">17.25g C • 1.5g P • 0.5g G (~80 kcal)</span>
+                    </div>
+                  </div>
+                  <div class="pc-stepper">
+                    <button class="step-btn step-minus" data-portion="fruit" aria-label="Restar fruta">−</button>
+                    <input type="number" id="input-portion-fruit" class="step-input" value="2" min="0" max="10" />
+                    <button class="step-btn step-plus" data-portion="fruit" aria-label="Sumar fruta">+</button>
+                  </div>
+                  <div class="pc-summary" id="sum-fruit">34.5g C • 3.0g P • 159 kcal</div>
+                </div>
+
+                <!-- LÁCTEOS -->
+                <div class="portion-card portion-card-dairy">
+                  <div class="pc-top">
+                    <div class="pc-badge-icon">🥛</div>
+                    <div class="pc-info">
+                      <strong class="pc-name">Lácteos (1 Alm. + 1 Prot.)</strong>
+                      <span class="pc-sub">17.25g C • 9.5g P • 3g G (134 kcal)</span>
+                    </div>
+                  </div>
+                  <div class="pc-stepper">
+                    <button class="step-btn step-minus" data-portion="dairy" aria-label="Restar lácteo">−</button>
+                    <input type="number" id="input-portion-dairy" class="step-input" value="1" min="0" max="6" />
+                    <button class="step-btn step-plus" data-portion="dairy" aria-label="Sumar lácteo">+</button>
+                  </div>
+                  <div class="pc-summary" id="sum-dairy">17.3g C • 9.5g P • 134 kcal</div>
+                </div>
+              </div>
+
+              <!-- SEPARADOR Y GESTIÓN DE COMIDAS -->
+              <div class="meals-config-section">
+                <div class="meals-config-header">
+                  <h3 class="sub-title">🍽️ Distribución por Comidas</h3>
+                  <button id="btn-auto-distribute-meals" class="btn btn-sm btn-outline">
+                    🔄 Auto-Distribuir en Comidas
+                  </button>
+                </div>
+
+                <div id="meals-builder-list" class="meals-builder-list">
+                  <!-- Se renderizan los inputs de porciones por comida -->
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- COLUMNA 3: METRICAS EN VIVO Y VALIDACIONES -->
+          <div class="panel-card metrics-card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span class="card-title-icon">📊</span>
+                <span>Resumen Nutricional</span>
+              </h2>
+              <span class="live-indicator"><span class="pulse-dot"></span> En Vivo</span>
+            </div>
+
+            <div class="card-body">
+              <!-- CALORIAS TOTALES -->
+              <div class="calories-hero-badge">
+                <div class="cal-hero-label">Calorías Totales Diarias</div>
+                <div class="cal-hero-number" id="metric-total-calories">1,994</div>
+                <div class="cal-hero-unit">kcal</div>
+              </div>
+
+              <!-- MACROS METRIC BARS -->
+              <div class="macro-breakdown-list">
+                <!-- CARBOHIDRATOS -->
+                <div class="metric-row">
+                  <div class="metric-row-header">
+                    <span class="macro-badge-pill pill-carbs">Carbohidratos</span>
+                    <strong class="macro-val" id="metric-total-carbs">207.0 g</strong>
+                  </div>
+                  <div class="metric-progress-bar">
+                    <div id="bar-carbs" class="bar-fill bar-fill-carbs" style="width: 42%;"></div>
+                  </div>
+                  <div class="metric-row-sub">
+                    <span id="metric-carbs-kg">3.76 g/kg</span>
+                    <span id="metric-carbs-pct">42% de kcal</span>
+                  </div>
+                </div>
+
+                <!-- PROTEÍNA -->
+                <div class="metric-row">
+                  <div class="metric-row-header">
+                    <span class="macro-badge-pill pill-protein">Proteínas</span>
+                    <strong class="macro-val" id="metric-total-protein">98.0 g</strong>
+                  </div>
+                  <div class="metric-progress-bar">
+                    <div id="bar-protein" class="bar-fill bar-fill-protein" style="width: 20%;"></div>
+                  </div>
+                  <div class="metric-row-sub">
+                    <span id="metric-protein-kg">1.78 g/kg</span>
+                    <span id="metric-protein-pct">20% de kcal</span>
+                  </div>
+                </div>
+
+                <!-- GRASAS -->
+                <div class="metric-row">
+                  <div class="metric-row-header">
+                    <span class="macro-badge-pill pill-fat">Grasas Saludables</span>
+                    <strong class="macro-val" id="metric-total-fat">86.0 g</strong>
+                  </div>
+                  <div class="metric-progress-bar">
+                    <div id="bar-fat" class="bar-fill bar-fill-fat" style="width: 38%;"></div>
+                  </div>
+                  <div class="metric-row-sub">
+                    <span id="metric-fat-kg">1.56 g/kg</span>
+                    <span id="metric-fat-pct">38% de kcal</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ALERTAS Y RECOMENDACIONES CLÍNICAS -->
+              <div class="nutrition-tips-box" id="nutrition-status-alerts">
+                <!-- Se llena con validaciones inteligentes -->
+              </div>
+
+              <!-- BOTON DE IR A VISTA PREVIA -->
+              <div class="preview-cta-box">
+                <button id="btn-goto-preview" class="btn btn-primary btn-full">
+                  👁️ Ver Documento Generado
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VISTA 2: VISTA PREVIA DEL DOCUMENTO IMPRIMIBLE -->
+      <section id="view-preview" class="view-panel">
+        <div class="preview-toolbar">
+          <div class="preview-info">
+            <span class="preview-badge">Documento Oficial Listo</span>
+            <span class="preview-subtext">8 diapositivas en formato 16:9 apaisado sin marcas personales</span>
+          </div>
+          <div class="preview-actions">
+            <button id="btn-back-to-editor" class="btn btn-secondary">
+              ✏️ Volver al Editor
+            </button>
+            <button id="btn-download-pdf-preview" class="btn btn-primary btn-glow"
+              title="Descarga directa del PDF en HD">
+              ⚡ Descargar PDF (HD)
+            </button>
+            <button id="btn-print-action" class="btn btn-secondary" title="Imprimir mediante el navegador">
+              🖨️ Imprimir
+            </button>
+          </div>
+        </div>
+
+        <div class="print-tip-banner">
+          <span>💡 <strong>Consejo para guardar como PDF:</strong> Usa el botón verde <strong>"Descargar PDF
+              (HD)"</strong> para guardar el archivo directamente con todos los colores y fondos exactos. Si usas
+            <em>"Imprimir"</em> con el navegador, en la ventana de impresión activa la casilla <strong>"Gráficos de
+              fondo"</strong> y selecciona Márgenes: <strong>"Ninguno"</strong> para que salga perfecto.</span>
+        </div>
+
+        <!-- CONTENEDOR DEL DOCUMENTO -->
+        <div class="document-viewport">
+          <div id="document-render-target">
+            <!-- Aquí documentGenerator.js inyecta el documento paginado -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA 3: CATÁLOGO DE ALIMENTOS Y EQUIVALENCIAS -->
+      <section id="view-catalog" class="view-panel">
+        <div class="catalog-header-card">
+          <div class="catalog-title-area">
+            <h2 class="catalog-title">📚 Catálogo Oficial de Equivalencias y Porciones</h2>
+            <p class="catalog-sub">Base de datos completa con pesos medidos cocidos/crudos y frecuencia recomendada.</p>
+          </div>
+          <div class="catalog-search-bar">
+            <input type="text" id="catalog-search-input" class="form-input catalog-input"
+              placeholder="🔍 Buscar alimento (ej: arroz, avena, huevo, aguacate, yogurt)..." />
+            <div class="catalog-filter-tags">
+              <button class="filter-tag active" data-cat="all">Todos</button>
+              <button class="filter-tag" data-cat="almidones">🌾 Almidones</button>
+              <button class="filter-tag" data-cat="proteinas">🍗 Proteínas</button>
+              <button class="filter-tag" data-cat="grasas">🥑 Grasas</button>
+              <button class="filter-tag" data-cat="frutas">🍎 Frutas</button>
+              <button class="filter-tag" data-cat="lacteos">🥛 Lácteos</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="catalog-cards-container" class="catalog-cards-grid">
+          <!-- Tarjetas del catálogo renderizadas dinámicamente -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
