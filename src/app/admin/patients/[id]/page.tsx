@@ -30,11 +30,32 @@ export default async function PatientDetailPage({
     .maybeSingle();
 
   // 3. Obtener historial de check-ins con fotos
-  const { data: checkins } = await supabase
+  const { data: rawCheckins } = await supabase
     .from('weekly_checkins')
     .select('*, checkin_photos(*)')
     .eq('patient_id', id)
     .order('checkin_date', { ascending: false });
+
+  // Generar URLs firmadas para las fotos si existen
+  const checkins = await Promise.all(
+    (rawCheckins || []).map(async (c: any) => {
+      const photosWithUrls = await Promise.all(
+        (c.checkin_photos || []).map(async (p: any) => {
+          let url = '';
+          try {
+            const { data } = await supabase.storage
+              .from('patient-photos')
+              .createSignedUrl(p.storage_path, 3600);
+            url = data?.signedUrl || '';
+          } catch {
+            url = '';
+          }
+          return { ...p, url };
+        })
+      );
+      return { ...c, checkin_photos: photosWithUrls };
+    })
+  );
 
   // 4. Obtener registros diarios recientes
   const { data: dailyLogs } = await supabase

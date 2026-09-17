@@ -16,6 +16,8 @@ dist
 # Environment variables
 .env*.local
 .env
+env - copia.local
+*copia*.local
 !.env.example
 
 # Vercel

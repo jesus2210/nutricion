@@ -4,6 +4,8 @@
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { TrendingUp, Calendar, Image as ImageIcon, Scale, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import Link from 'next/link';
+import ProgressCharts from '@/components/portal/ProgressCharts';
+import PatientPhotoGalleryClient from '@/components/portal/PatientPhotoGalleryClient';
 
 export default async function PatientProgressPage() {
   const supabase = await createServerSupabaseClient();
@@ -107,6 +109,15 @@ export default async function PatientProgressPage() {
         </div>
       </div>
 
+      {/* Gráficas de Evolución */}
+      {checkins && checkins.length > 0 && (
+        <ProgressCharts
+          checkins={checkins}
+          targetGoal={patient.target_goal}
+          initialWeight={initialWeight}
+        />
+      )}
+
       {/* Historial de Medidas */}
       <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-6">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -164,57 +175,19 @@ export default async function PatientProgressPage() {
         </div>
       </div>
 
-      {/* Galería de Fotos de Progreso */}
+      {/* Galería de Fotos de Progreso Interactiva */}
       <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-6">
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
           <div className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-[#38bdf8]" />
-            <h2 className="font-heading text-base font-bold text-white">Galería de Fotos de Progreso</h2>
-          </div>
-          <span className="text-xs text-[#94a3b8]">Organizado por fecha</span>
-        </div>
-
-        <div className="space-y-6">
-          {checkinsWithUrls.length === 0 || !checkinsWithUrls.some((c: any) => c.checkin_photos?.length > 0) ? (
-            <div className="py-8 text-center text-xs text-[#64748b]">
-              No hay fotos cargadas todavía. Adjunta fotos de frente, perfil y espalda en tu próximo check-in.
+            <div>
+              <h2 className="font-heading text-base font-bold text-white">Galería de Fotos de Progreso</h2>
+              <p className="text-[11px] text-[#94a3b8]">Toca cualquier foto para abrir el visor deslizable estilo galería de celular</p>
             </div>
-          ) : (
-            checkinsWithUrls.map((c: any) => {
-              if (!c.checkin_photos || c.checkin_photos.length === 0) return null;
-
-              return (
-                <div key={c.id} className="rounded-xl border border-white/5 bg-[#162229] p-4">
-                  <div className="mb-3 flex items-center justify-between text-xs font-bold text-[#a7f3d0]">
-                    <span>Reporte del {c.checkin_date} ({c.weight_kg} kg)</span>
-                    <span className="text-[#94a3b8]">{c.checkin_photos.length} fotos</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    {c.checkin_photos.map((photo: any) => (
-                      <div key={photo.id} className="space-y-1.5 text-center">
-                        <div className="text-[11px] font-bold capitalize text-[#94a3b8]">
-                          {photo.photo_type === 'front' ? 'Frente' : photo.photo_type === 'side' ? 'Perfil' : 'Espalda'}
-                        </div>
-                        {photo.url ? (
-                          <img
-                            src={photo.url}
-                            alt={photo.photo_type}
-                            className="mx-auto h-56 w-full rounded-xl object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-56 items-center justify-center rounded-xl bg-black/20 text-xs text-[#64748b]">
-                            Foto privada
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          )}
+          </div>
         </div>
+
+        <PatientPhotoGalleryClient checkinsWithUrls={checkinsWithUrls} />
       </div>
     </div>
   );

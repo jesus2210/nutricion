@@ -27,6 +27,8 @@ import {
   ShieldAlert,
   Info,
 } from 'lucide-react';
+import PhotoGalleryModal, { GalleryPhoto } from '@/components/portal/PhotoGalleryModal';
+import ProgressCharts from '@/components/portal/ProgressCharts';
 
 interface PatientDetailClientProps {
   patient: any;
@@ -42,6 +44,36 @@ export default function PatientDetailClient({
   dailyLogs,
 }: PatientDetailClientProps) {
   const [activeTab, setActiveTab] = useState<'ficha' | 'plan' | 'checkins'>('ficha');
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Aplanar todas las fotos disponibles de todos los checkins para la galería deslizable
+  const allPhotos: GalleryPhoto[] = checkins
+    .flatMap((c) =>
+      (c.checkin_photos || []).map((p: any) => ({
+        id: p.id,
+        url: p.url || '',
+        photoType: p.photo_type || 'front',
+        checkinDate: c.checkin_date,
+        weightKg: c.weight_kg,
+      }))
+    )
+    .filter((p) => Boolean(p.url));
+
+  const openGalleryAtPhoto = (photoId: string) => {
+    const idx = allPhotos.findIndex((p) => p.id === photoId);
+    setGalleryIndex(idx >= 0 ? idx : 0);
+    setGalleryOpen(true);
+  };
+
+  const openGalleryAtCheckin = (checkinId: string) => {
+    const idx = allPhotos.findIndex((p) => {
+      const c = checkins.find((chk) => chk.id === checkinId);
+      return c?.checkin_photos?.some((cp: any) => cp.id === p.id);
+    });
+    setGalleryIndex(idx >= 0 ? idx : 0);
+    setGalleryOpen(true);
+  };
 
   // Cálculos antropométricos
   const currentWeight = Number(patient.current_weight_kg || patient.initial_weight_kg || 60);
@@ -485,64 +517,147 @@ export default function PatientDetailClient({
 
       {/* TAB 3: HISTORIAL DE CHECK-INS Y EVOLUCIÓN */}
       {activeTab === 'checkins' && (
-        <div className="rounded-3xl border border-white/10 bg-[#111a1f] p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-[#38bdf8]" />
-              <h3 className="font-heading text-base font-bold text-white">
-                Historial de Mediciones Semanales & Fotos
-              </h3>
-            </div>
-            <span className="text-xs text-[#94a3b8]">{checkins?.length || 0} reportes registrados</span>
-          </div>
+        <div className="space-y-6">
+          {/* Gráficas interactivas completas */}
+          {checkins && checkins.length > 0 && (
+            <ProgressCharts
+              checkins={checkins}
+              targetGoal={patient.target_goal}
+              initialWeight={initialWeight}
+            />
+          )}
 
-          {(!checkins || checkins.length === 0) ? (
-            <div className="py-12 text-center text-xs text-[#64748b]">
-              El paciente no ha enviado reportes de check-in semanales todavía.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-white/10 text-[11px] font-bold uppercase text-[#94a3b8]">
-                  <tr>
-                    <th className="pb-3">Fecha</th>
-                    <th className="pb-3">Peso</th>
-                    <th className="pb-3">Cintura</th>
-                    <th className="pb-3">Cadera</th>
-                    <th className="pb-3">Muslo</th>
-                    <th className="pb-3">Brazo</th>
-                    <th className="pb-3">Adherencia</th>
-                    <th className="pb-3">Fotos</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {checkins.map((c: any) => (
-                    <tr key={c.id}>
-                      <td className="py-3 font-semibold text-white">{c.checkin_date}</td>
-                      <td className="py-3 font-bold text-[#34d399]">{c.weight_kg} kg</td>
-                      <td className="py-3 text-[#e2e8f0]">{c.waist_cm ? `${c.waist_cm} cm` : '-'}</td>
-                      <td className="py-3 text-[#e2e8f0]">{c.hip_cm ? `${c.hip_cm} cm` : '-'}</td>
-                      <td className="py-3 text-[#e2e8f0]">{c.thigh_cm ? `${c.thigh_cm} cm` : '-'}</td>
-                      <td className="py-3 text-[#e2e8f0]">{c.arm_cm ? `${c.arm_cm} cm` : '-'}</td>
-                      <td className="py-3">
-                        <span className="rounded-full bg-[#162229] px-2 py-0.5 text-[10px] font-bold text-[#fbbf24]">
-                          {c.adherence_score}/10
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <span className="inline-flex items-center gap-1 text-[11px] text-[#38bdf8]">
-                          <ImageIcon className="h-3 w-3" />
-                          {c.checkin_photos?.length || 0} fotos
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Galería visual rápida de fotos del paciente */}
+          {allPhotos.length > 0 && (
+            <div className="rounded-3xl border border-white/10 bg-[#111a1f] p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-[#34d399]" />
+                  <h3 className="font-heading text-base font-bold text-white">
+                    Galería Fotográfica de Evolución
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setGalleryIndex(0);
+                    setGalleryOpen(true);
+                  }}
+                  className="rounded-xl border border-white/10 bg-[#162229] px-3 py-1.5 text-xs font-bold text-[#34d399] hover:bg-[#1e2e38] transition cursor-pointer"
+                >
+                  Abrir Galería Completa ({allPhotos.length} fotos)
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {allPhotos.map((photo, idx) => (
+                  <button
+                    key={photo.id || idx}
+                    onClick={() => {
+                      setGalleryIndex(idx);
+                      setGalleryOpen(true);
+                    }}
+                    className="group relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/10 bg-black/40 text-left transition hover:border-[#34d399]/60 cursor-pointer"
+                  >
+                    <img
+                      src={photo.url}
+                      alt={photo.photoType}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-90" />
+                    <div className="absolute bottom-2 inset-x-2 text-[10px]">
+                      <span className="block font-bold capitalize text-white">
+                        {photo.photoType === 'front'
+                          ? 'Frente'
+                          : photo.photoType === 'side'
+                          ? 'Perfil'
+                          : 'Espalda'}
+                      </span>
+                      <span className="text-[#94a3b8]">{photo.checkinDate}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
+
+          {/* Tabla de Mediciones Semanales */}
+          <div className="rounded-3xl border border-white/10 bg-[#111a1f] p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-[#38bdf8]" />
+                <h3 className="font-heading text-base font-bold text-white">
+                  Historial de Mediciones Semanales & Fotos
+                </h3>
+              </div>
+              <span className="text-xs text-[#94a3b8]">{checkins?.length || 0} reportes registrados</span>
+            </div>
+
+            {(!checkins || checkins.length === 0) ? (
+              <div className="py-12 text-center text-xs text-[#64748b]">
+                El paciente no ha enviado reportes de check-in semanales todavía.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-white/10 text-[11px] font-bold uppercase text-[#94a3b8]">
+                    <tr>
+                      <th className="pb-3">Fecha</th>
+                      <th className="pb-3">Peso</th>
+                      <th className="pb-3">Cintura</th>
+                      <th className="pb-3">Cadera</th>
+                      <th className="pb-3">Muslo</th>
+                      <th className="pb-3">Brazo</th>
+                      <th className="pb-3">Adherencia</th>
+                      <th className="pb-3">Fotos</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {checkins.map((c: any) => {
+                      const photoCount = c.checkin_photos?.length || 0;
+                      return (
+                        <tr key={c.id}>
+                          <td className="py-3 font-semibold text-white">{c.checkin_date}</td>
+                          <td className="py-3 font-bold text-[#34d399]">{c.weight_kg} kg</td>
+                          <td className="py-3 text-[#e2e8f0]">{c.waist_cm ? `${c.waist_cm} cm` : '-'}</td>
+                          <td className="py-3 text-[#e2e8f0]">{c.hip_cm ? `${c.hip_cm} cm` : '-'}</td>
+                          <td className="py-3 text-[#e2e8f0]">{c.thigh_cm ? `${c.thigh_cm} cm` : '-'}</td>
+                          <td className="py-3 text-[#e2e8f0]">{c.arm_cm ? `${c.arm_cm} cm` : '-'}</td>
+                          <td className="py-3">
+                            <span className="rounded-full bg-[#162229] px-2 py-0.5 text-[10px] font-bold text-[#fbbf24]">
+                              {c.adherence_score}/10
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            {photoCount > 0 ? (
+                              <button
+                                onClick={() => openGalleryAtCheckin(c.id)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#38bdf8]/30 bg-[#38bdf8]/10 px-2.5 py-1 text-[11px] font-bold text-[#38bdf8] hover:bg-[#38bdf8]/20 transition cursor-pointer"
+                              >
+                                <ImageIcon className="h-3.5 w-3.5" />
+                                Ver {photoCount} fotos
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-[#64748b]">Sin fotos</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Visor Modal de Fotos estilo móvil */}
+      <PhotoGalleryModal
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        photos={allPhotos}
+        initialIndex={galleryIndex}
+      />
     </div>
   );
 }
