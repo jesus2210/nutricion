@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { compressProgressPhoto, CompressionResult } from '@/components/image-compressor/compressor';
-import { Camera, Check, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
+import { Camera, Check, UploadCloud, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function CheckinForm() {
@@ -246,7 +246,15 @@ export default function CheckinForm() {
           <div className="rounded-xl border border-white/10 bg-[#162229] p-4 text-center">
             <div className="text-xs font-bold text-white mb-2">Foto de Frente</div>
             {frontPhoto ? (
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
+                <button
+                  type="button"
+                  onClick={() => setFrontPhoto(null)}
+                  className="absolute top-1 right-1 rounded-full bg-red-500/80 p-1 text-white hover:bg-red-600 transition"
+                  title="Eliminar foto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
                 <img src={frontPhoto.previewUrl} alt="Frente" className="mx-auto h-40 w-auto rounded-lg object-cover" />
                 <div className="text-[10px] text-[#34d399]">
                   {(frontPhoto.compressedSizeBytes / 1024).toFixed(0)} KB (Ahorro {frontPhoto.compressionRatioPct}%)
@@ -265,7 +273,15 @@ export default function CheckinForm() {
           <div className="rounded-xl border border-white/10 bg-[#162229] p-4 text-center">
             <div className="text-xs font-bold text-white mb-2">Foto de Perfil</div>
             {sidePhoto ? (
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
+                <button
+                  type="button"
+                  onClick={() => setSidePhoto(null)}
+                  className="absolute top-1 right-1 rounded-full bg-red-500/80 p-1 text-white hover:bg-red-600 transition"
+                  title="Eliminar foto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
                 <img src={sidePhoto.previewUrl} alt="Perfil" className="mx-auto h-40 w-auto rounded-lg object-cover" />
                 <div className="text-[10px] text-[#34d399]">
                   {(sidePhoto.compressedSizeBytes / 1024).toFixed(0)} KB (Ahorro {sidePhoto.compressionRatioPct}%)
@@ -284,7 +300,15 @@ export default function CheckinForm() {
           <div className="rounded-xl border border-white/10 bg-[#162229] p-4 text-center">
             <div className="text-xs font-bold text-white mb-2">Foto de Espalda</div>
             {backPhoto ? (
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
+                <button
+                  type="button"
+                  onClick={() => setBackPhoto(null)}
+                  className="absolute top-1 right-1 rounded-full bg-red-500/80 p-1 text-white hover:bg-red-600 transition"
+                  title="Eliminar foto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
                 <img src={backPhoto.previewUrl} alt="Espalda" className="mx-auto h-40 w-auto rounded-lg object-cover" />
                 <div className="text-[10px] text-[#34d399]">
                   {(backPhoto.compressedSizeBytes / 1024).toFixed(0)} KB (Ahorro {backPhoto.compressionRatioPct}%)

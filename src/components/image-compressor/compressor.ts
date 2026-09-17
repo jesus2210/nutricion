@@ -11,9 +11,9 @@ export interface CompressionResult {
 
 export async function compressProgressPhoto(
   file: File,
-  maxWidth: number = 1200,
-  maxHeight: number = 1600,
-  quality: number = 0.82
+  maxWidth: number = 1080,
+  maxHeight: number = 1440,
+  quality: number = 0.75
 ): Promise<CompressionResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
