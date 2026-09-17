@@ -48,18 +48,25 @@ export default function CheckinForm() {
 
     try {
       const result = await submitCheckinAction(formData);
-      if (result?.error) {
-        setError(result.error);
+      if (result && 'error' in result && result.error) {
+        setError(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
       } else {
         setSuccess(true);
         form.reset();
         setFrontPhoto(null);
         setSidePhoto(null);
         setBackPhoto(null);
-        confetti({ particleCount: 60, spread: 70 });
+        if (typeof confetti === 'function') {
+          try {
+            confetti({ particleCount: 60, spread: 70 });
+          } catch {
+            // Ignorar si canvas-confetti falla en móvil
+          }
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Error al enviar check-in');
+      const msg = err?.message || (typeof err === 'string' ? err : 'Error de conexión al enviar check-in');
+      setError(msg);
     } finally {
       setLoading(false);
     }
