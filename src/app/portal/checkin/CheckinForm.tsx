@@ -1,14 +1,19 @@
 // LAYER: Interface
-// Formulario de Check-in Semanal con Compresión de Fotos en el Navegador
+// Formulario de Check-in Semanal.
+// Las fotos se comprimen en el navegador y se suben DIRECTAMENTE a Supabase Storage
+// desde el cliente (browser → Supabase), sin pasar por el servidor Next.js.
+// Solo los paths resultantes y los datos del formulario se envían al API (JSON ligero).
 'use client';
 
 import { useState } from 'react';
 import { compressProgressPhoto, CompressionResult } from '@/components/image-compressor/compressor';
-import { Camera, Check, UploadCloud, AlertCircle, Sparkles, Trash2 } from 'lucide-react';
+import { createClient } from '@/infrastructure/db/supabase/client';
+import { Camera, Check, UploadCloud, AlertCircle, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function CheckinForm() {
   const [loading, setLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -31,24 +36,88 @@ export default function CheckinForm() {
     }
   }
 
+  /**
+   * Sube una foto directamente al Storage de Supabase desde el browser.
+   * Retorna el storage_path o null si falla (error no bloquea el check-in).
+   */
+  async function uploadPhotoToStorage(
+    supabase: ReturnType<typeof createClient>,
+    photo: CompressionResult,
+    userId: string,
+    type: 'front' | 'side' | 'back'
+  ): Promise<string | null> {
+    const timestamp = Date.now();
+    const path = `${userId}/${timestamp}_${type}.webp`;
+    const { error: uploadError } = await supabase.storage
+      .from('patient-photos')
+      .upload(path, photo.file, { contentType: 'image/webp', upsert: true });
+
+    if (uploadError) {
+      console.error(`Error subiendo foto ${type} a Storage:`, uploadError.message);
+      return null;
+    }
+    return path;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(false);
+    setUploadStatus('');
 
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    // Adjuntar fotos comprimidas en lugar de las originales
-    if (frontPhoto) formData.set('photo_front', frontPhoto.file);
-    if (sidePhoto) formData.set('photo_side', sidePhoto.file);
-    if (backPhoto) formData.set('photo_back', backPhoto.file);
-
     try {
+      // 1. Subir fotos directamente a Supabase Storage desde el browser
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError('Sesión expirada. Por favor recarga la página e inicia sesión.');
+        return;
+      }
+
+      const photoPaths: { front?: string; side?: string; back?: string } = {};
+
+      const photosToUpload = [
+        { type: 'front' as const, photo: frontPhoto },
+        { type: 'side' as const, photo: sidePhoto },
+        { type: 'back' as const, photo: backPhoto },
+      ].filter(p => p.photo !== null);
+
+      if (photosToUpload.length > 0) {
+        setUploadStatus(`Subiendo ${photosToUpload.length} foto(s)...`);
+        for (const { type, photo } of photosToUpload) {
+          const path = await uploadPhotoToStorage(supabase, photo!, user.id, type);
+          if (path) photoPaths[type] = path;
+        }
+        setUploadStatus('Guardando reporte...');
+      }
+
+      // 2. Enviar datos del checkin (JSON ligero, sin archivos) al API
+      const payload = {
+        weightKg: formData.get('weightKg'),
+        waistCm: formData.get('waistCm') || undefined,
+        hipCm: formData.get('hipCm') || undefined,
+        thighCm: formData.get('thighCm') || undefined,
+        armCm: formData.get('armCm') || undefined,
+        neckCm: formData.get('neckCm') || undefined,
+        adherenceScore: formData.get('adherenceScore') || 10,
+        hungerLevel: formData.get('hungerLevel') || undefined,
+        energyLevel: formData.get('energyLevel') || undefined,
+        sleepQuality: formData.get('sleepQuality') || undefined,
+        notes: formData.get('notes') || undefined,
+        photoFrontPath: photoPaths.front,
+        photoSidePath: photoPaths.side,
+        photoBackPath: photoPaths.back,
+      };
+
       const response = await fetch('/api/portal/checkin', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json().catch(() => null);
@@ -58,6 +127,7 @@ export default function CheckinForm() {
         setError(errorText);
       } else {
         setSuccess(true);
+        setUploadStatus('');
         form.reset();
         setFrontPhoto(null);
         setSidePhoto(null);
@@ -75,6 +145,7 @@ export default function CheckinForm() {
       setError(msg);
     } finally {
       setLoading(false);
+      setUploadStatus('');
     }
   }
 
@@ -165,7 +236,7 @@ export default function CheckinForm() {
 
       {/* 2. Sensaciones y Adherencia */}
       <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-6 shadow-sm">
-        <h2 className="font-heading text-base font-bold text-white mb-4">2. Sensaciones & Adherencia</h2>
+        <h2 className="font-heading text-base font-bold text-white mb-4">2. Sensaciones &amp; Adherencia</h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
@@ -226,18 +297,18 @@ export default function CheckinForm() {
         </div>
       </div>
 
-      {/* 3. Fotos de Progreso con Compresión WebP */}
+      {/* 3. Fotos de Progreso — subidas directo a Supabase Storage desde el browser */}
       <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-6 shadow-sm">
         <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
           <div>
             <h2 className="font-heading text-base font-bold text-white">3. Fotos de Progreso</h2>
             <p className="text-xs text-[#94a3b8]">
-              Tus fotos se comprimen automáticamente en el navegador a formato WebP antes de subirse
+              Tus fotos se comprimen automáticamente en el navegador y se suben directo a la nube
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#14352b] px-3 py-1 text-[10px] font-bold text-[#a7f3d0]">
             <Sparkles className="h-3 w-3" />
-            Compresión ~95%
+            Sin límite de tamaño
           </span>
         </div>
 
@@ -330,8 +401,17 @@ export default function CheckinForm() {
         disabled={loading}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] py-3.5 text-sm font-bold text-white shadow-xl shadow-[#1b4337]/50 transition hover:brightness-110 disabled:opacity-50"
       >
-        <UploadCloud className="h-5 w-5" />
-        {loading ? 'Subiendo reporte y fotos...' : 'Enviar Reporte Semanal'}
+        {loading ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            {uploadStatus || 'Procesando...'}
+          </>
+        ) : (
+          <>
+            <UploadCloud className="h-5 w-5" />
+            Enviar Reporte Semanal
+          </>
+        )}
       </button>
     </form>
   );

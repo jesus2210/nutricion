@@ -1,5 +1,7 @@
 // LAYER: Interface
-// Endpoint POST para registrar check-in semanal y subida de fotos (evita errores de Server Action #441 en Vercel)
+// Endpoint POST para registrar check-in semanal.
+// Las fotos son subidas directamente al Storage de Supabase desde el cliente (browser),
+// y este endpoint solo recibe los storage_path resultantes como texto (JSON).
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { z } from 'zod';
@@ -17,6 +19,10 @@ const checkinSchema = z.object({
   energyLevel: z.enum(['bajo', 'medio', 'alto']).optional(),
   sleepQuality: z.enum(['mala', 'regular', 'buena']).optional(),
   notes: z.string().optional(),
+  // Paths de fotos ya subidas al Storage desde el cliente (opcionales)
+  photoFrontPath: z.string().optional(),
+  photoSidePath: z.string().optional(),
+  photoBackPath: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -28,7 +34,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado o sesión expirada' }, { status: 401 });
     }
 
-    const formData = await request.formData();
+    // Parsear JSON en lugar de multipart/form-data
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: 'Cuerpo de solicitud inválido' }, { status: 400 });
+    }
 
     // Obtener patient_id
     const { data: patient, error: patientError } = await supabase
@@ -44,21 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawData = {
-      weightKg: formData.get('weightKg'),
-      waistCm: formData.get('waistCm') || undefined,
-      hipCm: formData.get('hipCm') || undefined,
-      thighCm: formData.get('thighCm') || undefined,
-      armCm: formData.get('armCm') || undefined,
-      neckCm: formData.get('neckCm') || undefined,
-      adherenceScore: formData.get('adherenceScore') || 10,
-      hungerLevel: formData.get('hungerLevel') || undefined,
-      energyLevel: formData.get('energyLevel') || undefined,
-      sleepQuality: formData.get('sleepQuality') || undefined,
-      notes: formData.get('notes') || undefined,
-    };
-
-    const validation = checkinSchema.safeParse(rawData);
+    const validation = checkinSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0]?.message || 'Datos de formulario inválidos' },
@@ -122,35 +118,25 @@ export async function POST(request: NextRequest) {
       console.error('Error calculando composición corporal:', e);
     }
 
-    // 3. Procesar fotos si fueron adjuntadas
-    const photoKeys = ['front', 'side', 'back'] as const;
-    for (const pType of photoKeys) {
+    // 3. Registrar paths de fotos en checkin_photos (ya subidas al Storage desde el cliente)
+    const photoPaths: Array<{ type: 'front' | 'side' | 'back'; path: string }> = [];
+    if (v.photoFrontPath) photoPaths.push({ type: 'front', path: v.photoFrontPath });
+    if (v.photoSidePath) photoPaths.push({ type: 'side', path: v.photoSidePath });
+    if (v.photoBackPath) photoPaths.push({ type: 'back', path: v.photoBackPath });
+
+    for (const photo of photoPaths) {
       try {
-        const file = formData.get(`photo_${pType}`) as File | null;
-        if (file && file.size > 0) {
-          const ext = file.type === 'image/webp' ? 'webp' : 'jpg';
-          const path = `${user.id}/${checkin.id}_${pType}.${ext}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('patient-photos')
-            .upload(path, file, { contentType: file.type, upsert: true });
-
-          if (!uploadError) {
-            await supabase.from('checkin_photos').insert({
-              checkin_id: checkin.id,
-              photo_type: pType,
-              storage_path: path,
-            });
-          } else {
-            console.error(`Error subiendo foto ${pType}:`, uploadError.message);
-          }
-        }
+        await supabase.from('checkin_photos').insert({
+          checkin_id: checkin.id,
+          photo_type: photo.type,
+          storage_path: photo.path,
+        });
       } catch (photoErr) {
-        console.error(`Error procesando foto ${pType}:`, photoErr);
+        console.error(`Error registrando foto ${photo.type}:`, photoErr);
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, checkinId: checkin.id });
   } catch (err: any) {
     console.error('Error en /api/portal/checkin:', err);
     return NextResponse.json(
