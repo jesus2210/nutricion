@@ -4,7 +4,6 @@
 
 import { useState } from 'react';
 import { compressProgressPhoto, CompressionResult } from '@/components/image-compressor/compressor';
-import { submitCheckinAction } from './actions';
 import { Camera, Check, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -47,9 +46,16 @@ export default function CheckinForm() {
     if (backPhoto) formData.set('photo_back', backPhoto.file);
 
     try {
-      const result = await submitCheckinAction(formData);
-      if (result && 'error' in result && result.error) {
-        setError(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+      const response = await fetch('/api/portal/checkin', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || (result && result.error)) {
+        const errorText = result?.error || `Error en el servidor (${response.status})`;
+        setError(errorText);
       } else {
         setSuccess(true);
         form.reset();
@@ -65,7 +71,7 @@ export default function CheckinForm() {
         }
       }
     } catch (err: any) {
-      const msg = err?.message || (typeof err === 'string' ? err : 'Error de conexión al enviar check-in');
+      const msg = err?.message || 'Error de conexión al enviar check-in';
       setError(msg);
     } finally {
       setLoading(false);
