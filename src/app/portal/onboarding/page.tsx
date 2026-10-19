@@ -2,10 +2,10 @@
 // Flujo Interactivo de Onboarding Clínico del Paciente (Paso a Paso)
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { savePatientOnboardingAction } from './actions';
+import { savePatientOnboardingAction, getPatientOnboardingDataAction } from './actions';
 import confetti from 'canvas-confetti';
 import {
   User,
@@ -25,6 +25,7 @@ export default function PatientOnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
@@ -32,13 +33,13 @@ export default function PatientOnboardingPage() {
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('female');
   const [birthDate, setBirthDate] = useState('1998-06-15');
-  const [heightCm, setHeightCm] = useState(165);
-  const [weightKg, setWeightKg] = useState(60);
+  const [heightCm, setHeightCm] = useState<number | ''>(165);
+  const [weightKg, setWeightKg] = useState<number | ''>(60);
 
   // Medidas de circunferencias
-  const [waistCm, setWaistCm] = useState<number | undefined>(72);
-  const [hipCm, setHipCm] = useState<number | undefined>(96);
-  const [neckCm, setNeckCm] = useState<number | undefined>(34);
+  const [waistCm, setWaistCm] = useState<number | '' | undefined>(72);
+  const [hipCm, setHipCm] = useState<number | '' | undefined>(96);
+  const [neckCm, setNeckCm] = useState<number | '' | undefined>(34);
 
   // Estilo de vida y objetivos
   const [activityLevel, setActivityLevel] = useState('moderate');
@@ -49,6 +50,37 @@ export default function PatientOnboardingPage() {
   const [allergies, setAllergies] = useState('');
   const [dislikedFoods, setDislikedFoods] = useState('');
   const [medicalNotes, setMedicalNotes] = useState('');
+
+  // Precargar datos previos del usuario (del registro o expediente previo)
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        const data = await getPatientOnboardingDataAction();
+        if (data) {
+          if (data.fullName) setFullName(data.fullName);
+          if (data.phone) setPhone(data.phone);
+          if (data.gender) setGender(data.gender);
+          if (data.birthDate) setBirthDate(data.birthDate);
+          if (data.heightCm) setHeightCm(data.heightCm);
+          if (data.weightKg) setWeightKg(data.weightKg);
+          if (data.waistCm !== undefined) setWaistCm(data.waistCm);
+          if (data.hipCm !== undefined) setHipCm(data.hipCm);
+          if (data.neckCm !== undefined) setNeckCm(data.neckCm);
+          if (data.targetGoal) setTargetGoal(data.targetGoal);
+          if (data.activityLevel) setActivityLevel(data.activityLevel);
+          if (data.trainingDays) setTrainingDays(data.trainingDays);
+          if (data.allergies) setAllergies(data.allergies);
+          if (data.dislikedFoods) setDislikedFoods(data.dislikedFoods);
+          if (data.medicalNotes) setMedicalNotes(data.medicalNotes);
+        }
+      } catch (err) {
+        // Fallback silencioso a valores iniciales
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadUserData();
+  }, []);
 
   const steps = [
     { id: 1, title: 'Datos Físicos', icon: User },
@@ -73,8 +105,8 @@ export default function PatientOnboardingPage() {
         phone: phone.trim() || undefined,
         gender,
         birthDate,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
+        heightCm: heightCm ? Number(heightCm) : 165,
+        weightKg: weightKg ? Number(weightKg) : 60,
         waistCm: waistCm ? Number(waistCm) : undefined,
         hipCm: hipCm ? Number(hipCm) : undefined,
         neckCm: neckCm ? Number(neckCm) : undefined,
@@ -102,6 +134,15 @@ export default function PatientOnboardingPage() {
       setError(err?.message || 'Error al guardar');
       setLoading(false);
     }
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-[#34d399]" />
+        <p className="text-xs text-[#94a3b8]">Cargando tu expediente...</p>
+      </div>
+    );
   }
 
   return (
@@ -227,9 +268,11 @@ export default function PatientOnboardingPage() {
                 <input
                   type="number"
                   required
+                  placeholder="Ej. 165"
                   value={heightCm}
-                  onChange={(e) => setHeightCm(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                  onChange={(e) => setHeightCm(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
                 />
               </div>
 
@@ -239,9 +282,11 @@ export default function PatientOnboardingPage() {
                   type="number"
                   step="0.1"
                   required
+                  placeholder="Ej. 60.5"
                   value={weightKg}
-                  onChange={(e) => setWeightKg(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none"
+                  onChange={(e) => setWeightKg(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
                 />
                 <span className="mt-1 block text-[11px] text-[#64748b]">
                   Pésate por la mañana al despertar, después de orinar y antes de desayunar.
@@ -277,8 +322,9 @@ export default function PatientOnboardingPage() {
                   type="number"
                   step="0.5"
                   placeholder="Ej. 72"
-                  value={waistCm || ''}
-                  onChange={(e) => setWaistCm(e.target.value ? Number(e.target.value) : undefined)}
+                  value={waistCm ?? ''}
+                  onChange={(e) => setWaistCm(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
                 />
                 <span className="mt-1 block text-[10px] text-[#64748b]">A la altura del ombligo</span>
@@ -290,8 +336,9 @@ export default function PatientOnboardingPage() {
                   type="number"
                   step="0.5"
                   placeholder="Ej. 96"
-                  value={hipCm || ''}
-                  onChange={(e) => setHipCm(e.target.value ? Number(e.target.value) : undefined)}
+                  value={hipCm ?? ''}
+                  onChange={(e) => setHipCm(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
                 />
                 <span className="mt-1 block text-[10px] text-[#64748b]">Parte más ancha de los glúteos</span>
@@ -303,8 +350,9 @@ export default function PatientOnboardingPage() {
                   type="number"
                   step="0.5"
                   placeholder="Ej. 34"
-                  value={neckCm || ''}
-                  onChange={(e) => setNeckCm(e.target.value ? Number(e.target.value) : undefined)}
+                  value={neckCm ?? ''}
+                  onChange={(e) => setNeckCm(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
                 />
                 <span className="mt-1 block text-[10px] text-[#64748b]">Debajo de la laringe</span>

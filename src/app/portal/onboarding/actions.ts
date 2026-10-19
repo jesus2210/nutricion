@@ -127,3 +127,57 @@ export async function savePatientOnboardingAction(input: PatientOnboardingInput)
 
   return { success: true };
 }
+
+export async function getPatientOnboardingDataAction() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  // 1. Obtener perfil básico
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, phone')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  // 2. Obtener expediente si ya existe
+  const { data: patientProfile } = await supabase
+    .from('patient_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  let clinicalData: any = {};
+  if (patientProfile?.allergies_or_notes) {
+    const match = patientProfile.allergies_or_notes.match(/CLINICAL_JSON:(.*)/);
+    if (match && match[1]) {
+      try {
+        clinicalData = JSON.parse(match[1]);
+      } catch (e) {
+        // ignore JSON parse error
+      }
+    }
+  }
+
+  return {
+    fullName: profile?.full_name || user.user_metadata?.full_name || '',
+    phone: profile?.phone || '',
+    gender: (patientProfile?.gender || user.user_metadata?.gender || 'female') as 'male' | 'female',
+    birthDate: patientProfile?.birth_date || user.user_metadata?.birth_date || '1998-06-15',
+    heightCm: patientProfile?.height_cm ? Number(patientProfile.height_cm) : (user.user_metadata?.height_cm ? Number(user.user_metadata.height_cm) : 165),
+    weightKg: patientProfile?.current_weight_kg ? Number(patientProfile.current_weight_kg) : (patientProfile?.initial_weight_kg ? Number(patientProfile.initial_weight_kg) : (user.user_metadata?.initial_weight_kg ? Number(user.user_metadata.initial_weight_kg) : 60)),
+    waistCm: clinicalData.waistCm ? Number(clinicalData.waistCm) : undefined,
+    hipCm: clinicalData.hipCm ? Number(clinicalData.hipCm) : undefined,
+    neckCm: clinicalData.neckCm ? Number(clinicalData.neckCm) : undefined,
+    targetGoal: patientProfile?.target_goal || user.user_metadata?.target_goal || 'Recomposición',
+    activityLevel: patientProfile?.activity_level || user.user_metadata?.activity_level || 'moderate',
+    trainingDays: clinicalData.trainingDays ? Number(clinicalData.trainingDays) : 4,
+    allergies: clinicalData.allergies && clinicalData.allergies !== 'Ninguna reportada' ? clinicalData.allergies : '',
+    dislikedFoods: clinicalData.dislikedFoods && clinicalData.dislikedFoods !== 'Ninguno' ? clinicalData.dislikedFoods : '',
+    medicalNotes: clinicalData.medicalNotes && clinicalData.medicalNotes !== 'Sin observaciones médicas' ? clinicalData.medicalNotes : '',
+    isCompleted: Boolean(clinicalData.onboardingCompletedAt || patientProfile?.body_fat_percentage),
+  };
+}

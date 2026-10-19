@@ -77,7 +77,8 @@ export default function CalculatorClient({
   const [newPatientGender, setNewPatientGender] = useState<'male' | 'female'>('female');
   const [newPatientBirthDate, setNewPatientBirthDate] = useState('1998-05-15');
   const [newPatientHeight, setNewPatientHeight] = useState<number>(165);
-  const [newPatientWeight, setNewPatientWeight] = useState<number>(60);
+  const [newPatientWeight, setNewPatientWeight] = useState<number | ''>(60);
+  const [newPatientHeight, setNewPatientHeight] = useState<number | ''>(165);
   const [newPatientGoal, setNewPatientGoal] = useState('Recomposición');
   const [newPatientActivity, setNewPatientActivity] = useState('moderate');
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
@@ -85,30 +86,47 @@ export default function CalculatorClient({
 
   // Estados para TDEE
   const [gender, setGender] = useState<'male' | 'female'>(initialGender);
-  const [age, setAge] = useState<number>(initialAge);
-  const [weightKg, setWeightKg] = useState<number>(initialWeight);
-  const [heightCm, setHeightCm] = useState<number>(initialHeight);
+  const [age, setAge] = useState<number | ''>(initialAge);
+  const [weightKg, setWeightKg] = useState<number | ''>(initialWeight);
+  const [heightCm, setHeightCm] = useState<number | ''>(initialHeight);
   const [activityLevel, setActivityLevel] = useState<any>(defaultPatient?.activityLevel || 'moderate');
-  const [bodyFatPct, setBodyFatPct] = useState<number | undefined>(
+  const [bodyFatPct, setBodyFatPct] = useState<number | '' | undefined>(
     defaultPatient?.bodyFatPercentage ? Number(defaultPatient.bodyFatPercentage) : undefined
   );
+
+  const safeAge = Number(age) || 28;
+  const safeWeight = Number(weightKg) || 65;
+  const safeHeight = Number(heightCm) || 165;
+  const safeBodyFat = bodyFatPct ? Number(bodyFatPct) : undefined;
 
   // Resultados TDEE
   const tdeeResult: EnergyExpenditureResult = calculateEnergyExpenditure({
     gender,
-    weightKg,
-    heightCm,
-    age,
+    weightKg: safeWeight,
+    heightCm: safeHeight,
+    age: safeAge,
     activityLevel,
-    bodyFatPercentage: bodyFatPct,
+    bodyFatPercentage: safeBodyFat,
   });
 
   // Estados para Composición Corporal (% Grasa)
   const [compMethod, setCompMethod] = useState<'jp3' | 'jp7' | 'navy'>(
     defaultPatient?.waistCm ? 'navy' : 'jp3'
   );
-  const [jp3Folds, setJp3Folds] = useState({ chestOrTriceps: 15, abdomenOrSuprailiac: 18, thigh: 20 });
-  const [jp7Folds, setJp7Folds] = useState({
+  const [jp3Folds, setJp3Folds] = useState<{
+    chestOrTriceps: number | '';
+    abdomenOrSuprailiac: number | '';
+    thigh: number | '';
+  }>({ chestOrTriceps: 15, abdomenOrSuprailiac: 18, thigh: 20 });
+  const [jp7Folds, setJp7Folds] = useState<{
+    chest: number | '';
+    midaxillary: number | '';
+    triceps: number | '';
+    subscapular: number | '';
+    abdomen: number | '';
+    suprailiac: number | '';
+    thigh: number | '';
+  }>({
     chest: 12,
     midaxillary: 14,
     triceps: 15,
@@ -117,7 +135,11 @@ export default function CalculatorClient({
     suprailiac: 19,
     thigh: 20,
   });
-  const [navyMeasures, setNavyMeasures] = useState({
+  const [navyMeasures, setNavyMeasures] = useState<{
+    neckCm: number | '';
+    waistCm: number | '';
+    hipCm: number | '';
+  }>({
     neckCm: defaultPatient?.neckCm || 34,
     waistCm: defaultPatient?.waistCm || 70,
     hipCm: defaultPatient?.hipCm || 95,
@@ -125,16 +147,28 @@ export default function CalculatorClient({
 
   let compResult: BodyCompositionResult;
   if (compMethod === 'jp3') {
-    compResult = calculateJacksonPollock3(gender, age, weightKg, jp3Folds);
+    compResult = calculateJacksonPollock3(gender, safeAge, safeWeight, {
+      chestOrTriceps: Number(jp3Folds.chestOrTriceps) || 0,
+      abdomenOrSuprailiac: Number(jp3Folds.abdomenOrSuprailiac) || 0,
+      thigh: Number(jp3Folds.thigh) || 0,
+    });
   } else if (compMethod === 'jp7') {
-    compResult = calculateJacksonPollock7(gender, age, weightKg, jp7Folds);
+    compResult = calculateJacksonPollock7(gender, safeAge, safeWeight, {
+      chest: Number(jp7Folds.chest) || 0,
+      midaxillary: Number(jp7Folds.midaxillary) || 0,
+      triceps: Number(jp7Folds.triceps) || 0,
+      subscapular: Number(jp7Folds.subscapular) || 0,
+      abdomen: Number(jp7Folds.abdomen) || 0,
+      suprailiac: Number(jp7Folds.suprailiac) || 0,
+      thigh: Number(jp7Folds.thigh) || 0,
+    });
   } else {
-    compResult = calculateNavyBodyFat(weightKg, {
+    compResult = calculateNavyBodyFat(safeWeight, {
       gender,
-      heightCm,
-      neckCm: navyMeasures.neckCm,
-      waistCm: navyMeasures.waistCm,
-      hipCm: navyMeasures.hipCm,
+      heightCm: safeHeight,
+      neckCm: Number(navyMeasures.neckCm) || 34,
+      waistCm: Number(navyMeasures.waistCm) || 70,
+      hipCm: Number(navyMeasures.hipCm) || 95,
     });
   }
 
@@ -280,7 +314,7 @@ export default function CalculatorClient({
   function updateMealPortion(
     mealIdx: number,
     macro: 'starch' | 'protein' | 'fat' | 'fruit' | 'dairy',
-    val: number
+    val: number | ''
   ) {
     setMeals((prev) => {
       const copy = [...prev];
@@ -289,7 +323,7 @@ export default function CalculatorClient({
         ...copy[mealIdx],
         portions: {
           ...copy[mealIdx].portions,
-          [macro]: Math.max(0, val),
+          [macro]: val === '' ? ('' as any) : Math.max(0, Number(val)),
         },
       };
       return copy;
@@ -306,13 +340,24 @@ export default function CalculatorClient({
     setSaveSuccess(false);
 
     try {
+      const sanitizedMeals = meals.map((m) => ({
+        ...m,
+        portions: {
+          starch: Number(m.portions.starch) || 0,
+          protein: Number(m.portions.protein) || 0,
+          fat: Number(m.portions.fat) || 0,
+          fruit: Number(m.portions.fruit) || 0,
+          dairy: Number(m.portions.dairy) || 0,
+        },
+      }));
+
       const res = await saveDietPlanAction({
         patientId: selectedPatientId,
         title: planTitle,
         goal: planGoal,
         portions,
-        meals,
-        weightKg,
+        meals: sanitizedMeals,
+        weightKg: safeWeight,
       });
 
       if (res?.success) {
@@ -326,7 +371,7 @@ export default function CalculatorClient({
     }
   }
 
-  const currentMacros = calculateMacros(portions, weightKg);
+  const currentMacros = calculateMacros(portions, safeWeight);
 
   return (
     <div className="space-y-6">
@@ -472,8 +517,10 @@ export default function CalculatorClient({
                 <label className="block text-xs text-[#94a3b8]">Edad</label>
                 <input
                   type="number"
+                  placeholder="Ej. 28"
                   value={age}
-                  onChange={(e) => setAge(Number(e.target.value))}
+                  onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
@@ -485,8 +532,10 @@ export default function CalculatorClient({
                 <input
                   type="number"
                   step="0.1"
+                  placeholder="Ej. 65"
                   value={weightKg}
-                  onChange={(e) => setWeightKg(Number(e.target.value))}
+                  onChange={(e) => setWeightKg(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
@@ -494,8 +543,10 @@ export default function CalculatorClient({
                 <label className="block text-xs text-[#94a3b8]">Altura (cm)</label>
                 <input
                   type="number"
+                  placeholder="Ej. 165"
                   value={heightCm}
-                  onChange={(e) => setHeightCm(Number(e.target.value))}
+                  onChange={(e) => setHeightCm(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
@@ -523,8 +574,9 @@ export default function CalculatorClient({
                   type="number"
                   step="0.1"
                   placeholder="Ej. 18.5"
-                  value={bodyFatPct || ''}
-                  onChange={(e) => setBodyFatPct(e.target.value ? Number(e.target.value) : undefined)}
+                  value={bodyFatPct ?? ''}
+                  onChange={(e) => setBodyFatPct(e.target.value === '' ? '' : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                 />
                 <button
@@ -669,7 +721,8 @@ export default function CalculatorClient({
                   <input
                     type="number"
                     value={jp3Folds.chestOrTriceps}
-                    onChange={(e) => setJp3Folds({ ...jp3Folds, chestOrTriceps: Number(e.target.value) })}
+                    onChange={(e) => setJp3Folds({ ...jp3Folds, chestOrTriceps: e.target.value === '' ? '' : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -680,7 +733,8 @@ export default function CalculatorClient({
                   <input
                     type="number"
                     value={jp3Folds.abdomenOrSuprailiac}
-                    onChange={(e) => setJp3Folds({ ...jp3Folds, abdomenOrSuprailiac: Number(e.target.value) })}
+                    onChange={(e) => setJp3Folds({ ...jp3Folds, abdomenOrSuprailiac: e.target.value === '' ? '' : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -689,7 +743,8 @@ export default function CalculatorClient({
                   <input
                     type="number"
                     value={jp3Folds.thigh}
-                    onChange={(e) => setJp3Folds({ ...jp3Folds, thigh: Number(e.target.value) })}
+                    onChange={(e) => setJp3Folds({ ...jp3Folds, thigh: e.target.value === '' ? '' : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -702,8 +757,10 @@ export default function CalculatorClient({
                   <label className="block text-xs text-[#94a3b8]">Cuello (cm)</label>
                   <input
                     type="number"
+                    placeholder="Ej. 34"
                     value={navyMeasures.neckCm}
-                    onChange={(e) => setNavyMeasures({ ...navyMeasures, neckCm: Number(e.target.value) })}
+                    onChange={(e) => setNavyMeasures({ ...navyMeasures, neckCm: e.target.value === '' ? '' : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -711,8 +768,10 @@ export default function CalculatorClient({
                   <label className="block text-xs text-[#94a3b8]">Cintura (cm)</label>
                   <input
                     type="number"
+                    placeholder="Ej. 70"
                     value={navyMeasures.waistCm}
-                    onChange={(e) => setNavyMeasures({ ...navyMeasures, waistCm: Number(e.target.value) })}
+                    onChange={(e) => setNavyMeasures({ ...navyMeasures, waistCm: e.target.value === '' ? '' : Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -721,8 +780,10 @@ export default function CalculatorClient({
                     <label className="block text-xs text-[#94a3b8]">Cadera (cm)</label>
                     <input
                       type="number"
+                      placeholder="Ej. 95"
                       value={navyMeasures.hipCm}
-                      onChange={(e) => setNavyMeasures({ ...navyMeasures, hipCm: Number(e.target.value) })}
+                      onChange={(e) => setNavyMeasures({ ...navyMeasures, hipCm: e.target.value === '' ? '' : Number(e.target.value) })}
+                      onFocus={(e) => e.target.select()}
                       className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                     />
                   </div>
@@ -873,8 +934,9 @@ export default function CalculatorClient({
                             type="number"
                             min="0"
                             max="20"
-                            value={meal.portions.starch}
-                            onChange={(e) => updateMealPortion(mealIdx, 'starch', parseInt(e.target.value) || 0)}
+                            value={meal.portions.starch ?? ''}
+                            onChange={(e) => updateMealPortion(mealIdx, 'starch', e.target.value === '' ? '' : parseInt(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             className="w-full text-center bg-transparent text-xs font-bold text-white focus:outline-none"
                           />
                         </div>
@@ -884,8 +946,9 @@ export default function CalculatorClient({
                             type="number"
                             min="0"
                             max="20"
-                            value={meal.portions.protein}
-                            onChange={(e) => updateMealPortion(mealIdx, 'protein', parseInt(e.target.value) || 0)}
+                            value={meal.portions.protein ?? ''}
+                            onChange={(e) => updateMealPortion(mealIdx, 'protein', e.target.value === '' ? '' : parseInt(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             className="w-full text-center bg-transparent text-xs font-bold text-white focus:outline-none"
                           />
                         </div>
@@ -895,8 +958,9 @@ export default function CalculatorClient({
                             type="number"
                             min="0"
                             max="20"
-                            value={meal.portions.fat}
-                            onChange={(e) => updateMealPortion(mealIdx, 'fat', parseInt(e.target.value) || 0)}
+                            value={meal.portions.fat ?? ''}
+                            onChange={(e) => updateMealPortion(mealIdx, 'fat', e.target.value === '' ? '' : parseInt(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             className="w-full text-center bg-transparent text-xs font-bold text-white focus:outline-none"
                           />
                         </div>
@@ -906,8 +970,9 @@ export default function CalculatorClient({
                             type="number"
                             min="0"
                             max="15"
-                            value={meal.portions.fruit ?? 0}
-                            onChange={(e) => updateMealPortion(mealIdx, 'fruit', parseInt(e.target.value) || 0)}
+                            value={meal.portions.fruit ?? ''}
+                            onChange={(e) => updateMealPortion(mealIdx, 'fruit', e.target.value === '' ? '' : parseInt(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             className="w-full text-center bg-transparent text-xs font-bold text-white focus:outline-none"
                           />
                         </div>
@@ -917,8 +982,9 @@ export default function CalculatorClient({
                             type="number"
                             min="0"
                             max="10"
-                            value={meal.portions.dairy ?? 0}
-                            onChange={(e) => updateMealPortion(mealIdx, 'dairy', parseInt(e.target.value) || 0)}
+                            value={meal.portions.dairy ?? ''}
+                            onChange={(e) => updateMealPortion(mealIdx, 'dairy', e.target.value === '' ? '' : parseInt(e.target.value))}
+                            onFocus={(e) => e.target.select()}
                             className="w-full text-center bg-transparent text-xs font-bold text-white focus:outline-none"
                           />
                         </div>
@@ -1030,8 +1096,10 @@ export default function CalculatorClient({
                     type="number"
                     step="0.1"
                     required
+                    placeholder="Ej. 60.5"
                     value={newPatientWeight}
-                    onChange={(e) => setNewPatientWeight(Number(e.target.value))}
+                    onChange={(e) => setNewPatientWeight(e.target.value === '' ? '' : Number(e.target.value))}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
@@ -1041,8 +1109,10 @@ export default function CalculatorClient({
                   <input
                     type="number"
                     required
+                    placeholder="Ej. 165"
                     value={newPatientHeight}
-                    onChange={(e) => setNewPatientHeight(Number(e.target.value))}
+                    onChange={(e) => setNewPatientHeight(e.target.value === '' ? '' : Number(e.target.value))}
+                    onFocus={(e) => e.target.select()}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>

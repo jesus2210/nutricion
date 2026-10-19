@@ -15,12 +15,12 @@ const signUpSchema = z.object({
   fullName: z.string().min(2, 'El nombre completo es requerido'),
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  gender: z.enum(['male', 'female']),
-  birthDate: z.string().min(10, 'Fecha de nacimiento requerida'),
-  heightCm: z.coerce.number().min(100).max(250),
-  initialWeightKg: z.coerce.number().min(30).max(300),
-  targetGoal: z.enum(['Deficit', 'Superavit', 'Recomposicion', 'Mantenimiento']),
-  activityLevel: z.enum(['sedentary', 'light', 'moderate', 'intense', 'very_intense']),
+  gender: z.enum(['male', 'female']).optional(),
+  birthDate: z.string().optional(),
+  heightCm: z.coerce.number().min(100).max(250).optional(),
+  initialWeightKg: z.coerce.number().min(30).max(300).optional(),
+  targetGoal: z.enum(['Deficit', 'Superavit', 'Recomposicion', 'Mantenimiento']).optional(),
+  activityLevel: z.enum(['sedentary', 'light', 'moderate', 'intense', 'very_intense']).optional(),
   notes: z.string().optional(),
 });
 
@@ -154,21 +154,23 @@ export async function signUpPatientAction(formData: FormData) {
       { onConflict: 'id' }
     );
 
-    // Crear o actualizar registro en patient_profiles
-    await supabase.from('patient_profiles').upsert(
-      {
-        user_id: userId,
-        gender: values.gender,
-        birth_date: values.birthDate,
-        height_cm: values.heightCm,
-        initial_weight_kg: values.initialWeightKg,
-        current_weight_kg: values.initialWeightKg,
-        target_goal: values.targetGoal,
-        activity_level: values.activityLevel,
-        allergies_or_notes: values.notes || null,
-      },
-      { onConflict: 'user_id' }
-    );
+    // Crear o actualizar registro en patient_profiles sólo si se suministraron los datos antropométricos
+    if (values.gender && values.birthDate && values.heightCm && values.initialWeightKg) {
+      await supabase.from('patient_profiles').upsert(
+        {
+          user_id: userId,
+          gender: values.gender,
+          birth_date: values.birthDate,
+          height_cm: values.heightCm,
+          initial_weight_kg: values.initialWeightKg,
+          current_weight_kg: values.initialWeightKg,
+          target_goal: values.targetGoal || 'Recomposición',
+          activity_level: values.activityLevel || 'moderate',
+          allergies_or_notes: values.notes || null,
+        },
+        { onConflict: 'user_id' }
+      );
+    }
 
     return { success: true, redirect: '/portal/onboarding' };
   }

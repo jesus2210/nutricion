@@ -86,145 +86,62 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {/* Cuenta básica */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Nombre Completo</label>
-              <input
-                type="text"
-                name="fullName"
-                required
-                placeholder="Ej. Génesis Ortiz"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
-              />
+            {/* Banner explicativo del flujo de registro */}
+            <div className="mt-4 rounded-xl border border-[#34d399]/20 bg-[#14352b]/40 p-3 text-xs text-[#a7f3d0]">
+              <span className="font-bold text-white">Paso 1 de 2:</span> Crea tu cuenta de acceso. A continuación personalizarás tu expediente clínico con tus medidas exactas.
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Correo Electrónico</label>
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder="tu@correo.com"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
-              />
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#94a3b8]">Contraseña (mínimo 6 caracteres)</label>
-            <input
-              type="password"
-              name="password"
-              required
-              placeholder="••••••••"
-              className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
-            />
-          </div>
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#94a3b8]">Nombre Completo</label>
+                <input
+                  type="text"
+                  name="fullName"
+                  required
+                  placeholder="Ej. Génesis Ortiz"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
+                />
+              </div>
 
-          {/* Datos antropométricos */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Sexo Biológico</label>
-              <select
-                name="gender"
-                required
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-sm text-white transition focus:border-[#2d6a4f] focus:outline-none"
+              <div>
+                <label className="block text-xs font-semibold text-[#94a3b8]">Correo Electrónico</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="tu@correo.com"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#94a3b8]">Contraseña (mínimo 6 caracteres)</label>
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2.5 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/40"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] py-3 text-sm font-bold text-white shadow-lg shadow-[#1b4337]/50 transition hover:brightness-110 disabled:opacity-50"
               >
-                <option value="female">Mujer</option>
-                <option value="male">Hombre</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">F. Nacimiento</label>
-              <input
-                type="date"
-                name="birthDate"
-                required
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-2 py-2 text-sm text-white transition focus:border-[#2d6a4f] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Altura (cm)</label>
-              <input
-                type="number"
-                name="heightCm"
-                step="0.5"
-                required
-                placeholder="165"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Peso Actual (kg)</label>
-              <input
-                type="number"
-                name="initialWeightKg"
-                step="0.1"
-                required
-                placeholder="55.0"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Objetivo y Actividad */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Objetivo Principal</label>
-              <select
-                name="targetGoal"
-                required
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-sm text-white transition focus:border-[#2d6a4f] focus:outline-none"
-              >
-                <option value="Recomposicion">Recomposición Corporal</option>
-                <option value="Deficit">Déficit Calórico / Pérdida de Grasa</option>
-                <option value="Superavit">Superávit Limpio / Ganancia Muscular</option>
-                <option value="Mantenimiento">Mantenimiento y Salud</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#94a3b8]">Nivel de Actividad</label>
-              <select
-                name="activityLevel"
-                required
-                className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-sm text-white transition focus:border-[#2d6a4f] focus:outline-none"
-              >
-                <option value="sedentary">Sedentario (Poco movimiento)</option>
-                <option value="light">Ligero (1-3 días ejercicio)</option>
-                <option value="moderate">Moderado (3-5 días pesas/cardio)</option>
-                <option value="intense">Intenso (6-7 días ejercicio)</option>
-                <option value="very_intense">Muy Intenso (Atleta / Doble sesión)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#94a3b8]">Alergias o Notas Médicas (Opcional)</label>
-            <textarea
-              name="notes"
-              rows={2}
-              placeholder="Ej. Intolerante a la lactosa, alergia a mariscos..."
-              className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] p-3 text-sm text-white placeholder-[#64748b] transition focus:border-[#2d6a4f] focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] py-3 text-sm font-bold text-white shadow-lg shadow-[#1b4337]/50 transition hover:brightness-110 disabled:opacity-50"
-          >
-            {loading ? (
-              <span>Creando cuenta y expediente...</span>
-            ) : (
-              <>
-                <UserPlus className="h-4 w-4" />
-                <span>Registrarme y Comenzar</span>
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-        </form>
+                {loading ? (
+                  <span>Creando tu cuenta...</span>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    <span>Crear Cuenta y Continuar al Expediente</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
 
         <div className="mt-5 text-center text-xs text-[#94a3b8]">
           ¿Ya tienes cuenta?{' '}
