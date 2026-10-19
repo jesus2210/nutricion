@@ -37,17 +37,46 @@ export default function DailyLogClient({
   const [saved, setSaved] = useState(false);
 
   function handleUpdate(key: keyof DailyPortions, delta: number) {
-    setConsumed((prev) => ({
-      ...prev,
-      [key]: Math.max(0, prev[key] + delta),
-    }));
+    setConsumed((prev) => {
+      const current = Number(prev[key]) || 0;
+      const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+      return {
+        ...prev,
+        [key]: next,
+      };
+    });
+  }
+
+  function handleDirectInput(key: keyof DailyPortions, value: string) {
+    if (value === '') {
+      setConsumed((prev) => ({
+        ...prev,
+        [key]: '' as any,
+      }));
+      return;
+    }
+    const num = parseFloat(value);
+    if (!isNaN(num) && num >= 0) {
+      setConsumed((prev) => ({
+        ...prev,
+        [key]: Math.round(num * 10) / 10,
+      }));
+    }
   }
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await saveDailyLogAction(logDate, consumed, waterLiters, notes);
+      const sanitizedConsumed: DailyPortions = {
+        starch: Number(consumed.starch) || 0,
+        protein: Number(consumed.protein) || 0,
+        fat: Number(consumed.fat) || 0,
+        fruit: Number(consumed.fruit) || 0,
+        dairy: Number(consumed.dairy) || 0,
+      };
+
+      const res = await saveDailyLogAction(logDate, sanitizedConsumed, waterLiters, notes);
       if (res?.success) {
         setSaved(true);
         confetti({ particleCount: 50, spread: 60 });
@@ -87,14 +116,15 @@ export default function DailyLogClient({
       {/* Tarjetas de Porciones */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {items.map(({ key, label, target, color }) => {
-          const current = consumed[key as keyof DailyPortions];
+          const currentVal = consumed[key as keyof DailyPortions];
+          const current = Number(currentVal) || 0;
           const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 100;
 
           return (
             <div key={key} className="rounded-2xl border border-white/10 bg-[#111a1f] p-4 shadow-sm">
               <div className="flex items-center justify-between text-xs font-bold text-white">
                 <span>{label}</span>
-                <span className="text-[#94a3b8]">{current} / {target}</span>
+                <span className="text-[#94a3b8]">{currentVal === '' ? 0 : currentVal} / {target}</span>
               </div>
 
               {/* Barra de progreso */}
@@ -105,20 +135,53 @@ export default function DailyLogClient({
                 />
               </div>
 
-              {/* Controles */}
-              <div className="mt-4 flex items-center justify-between">
+              {/* Controles de Porciones (Soporta 0.5 y teclado directo) */}
+              <div className="mt-4 flex items-center justify-between gap-1.5">
                 <button
-                  onClick={() => handleUpdate(key as any, -1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#162229] text-white hover:bg-[#1e2e38]"
+                  type="button"
+                  onClick={() => handleUpdate(key as any, -0.5)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#162229] text-white hover:bg-[#1e2e38] transition active:scale-95"
+                  title="Restar 0.5 porción"
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="font-heading text-lg font-extrabold text-white">{current}</span>
+
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={currentVal ?? ''}
+                  onChange={(e) => handleDirectInput(key as any, e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  className="w-16 rounded-xl border border-white/10 bg-[#162229] py-1 text-center font-heading text-base font-extrabold text-white focus:border-[#34d399] focus:outline-none transition"
+                  title="Ingresa tus porciones (ej. 0.5, 1, 1.5)"
+                />
+
                 <button
-                  onClick={() => handleUpdate(key as any, 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#162229] text-white hover:bg-[#1e2e38]"
+                  type="button"
+                  onClick={() => handleUpdate(key as any, 0.5)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#162229] text-white hover:bg-[#1e2e38] transition active:scale-95"
+                  title="Sumar 0.5 porción"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Atajos Rápidos */}
+              <div className="mt-2.5 flex items-center justify-center gap-1.5 border-t border-white/5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleUpdate(key as any, 0.5)}
+                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-[#a7f3d0] hover:bg-[#14352b] transition active:scale-95"
+                >
+                  +0.5
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdate(key as any, 1)}
+                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#14352b] transition active:scale-95"
+                >
+                  +1.0
                 </button>
               </div>
             </div>

@@ -4,9 +4,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import SlideDeckPreview from '@/components/pdf/SlideDeckPreview';
 import { calculateEnergyExpenditure } from '@/domain/formulas/energy-expenditure';
 import { calculateNavyBodyFat } from '@/domain/formulas/body-composition';
+import { adminSubmitCheckinAction } from './actions';
 import {
   ArrowLeft,
   User,
@@ -26,6 +28,10 @@ import {
   Mail,
   ShieldAlert,
   Info,
+  Plus,
+  X,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import PhotoGalleryModal, { GalleryPhoto } from '@/components/portal/PhotoGalleryModal';
 import ProgressCharts from '@/components/portal/ProgressCharts';
@@ -43,9 +49,16 @@ export default function PatientDetailClient({
   checkins,
   dailyLogs,
 }: PatientDetailClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'ficha' | 'plan' | 'checkins'>('ficha');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Estados para Modal de Check-in Manual por el Admin
+  const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
+  const [isSubmittingCheckin, setIsSubmittingCheckin] = useState(false);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const [checkinSuccess, setCheckinSuccess] = useState(false);
 
   // Aplanar todas las fotos disponibles de todos los checkins para la galería deslizable
   const allPhotos: GalleryPhoto[] = checkins
@@ -158,6 +171,30 @@ export default function PatientDetailClient({
     bodyFatPct = navy.bodyFatPercentage;
   }
 
+  async function handleAdminSubmitCheckin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsSubmittingCheckin(true);
+    setCheckinError(null);
+    try {
+      const formData = new FormData(e.currentTarget);
+      const res = await adminSubmitCheckinAction(patient.id, formData);
+      if (res?.success) {
+        setCheckinSuccess(true);
+        setTimeout(() => {
+          setCheckinSuccess(false);
+          setIsCheckinModalOpen(false);
+          router.refresh();
+        }, 1400);
+      } else {
+        setCheckinError(res?.error || 'Error al guardar reporte');
+      }
+    } catch (err: any) {
+      setCheckinError(err?.message || 'Error inesperado');
+    } finally {
+      setIsSubmittingCheckin(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Volver & Header del Paciente */}
@@ -211,6 +248,14 @@ export default function PatientDetailClient({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCheckinModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-xs font-bold text-[#34d399] shadow-sm transition hover:bg-[#1e2e38] cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Registrar Check-in
+              </button>
               <Link
                 href={`/admin/calculator?patientId=${patient.id}`}
                 className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110"
@@ -582,19 +627,37 @@ export default function PatientDetailClient({
 
           {/* Tabla de Mediciones Semanales */}
           <div className="rounded-3xl border border-white/10 bg-[#111a1f] p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-[#38bdf8]" />
                 <h3 className="font-heading text-base font-bold text-white">
                   Historial de Mediciones Semanales & Fotos
                 </h3>
               </div>
-              <span className="text-xs text-[#94a3b8]">{checkins?.length || 0} reportes registrados</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[#94a3b8]">{checkins?.length || 0} reportes registrados</span>
+                <button
+                  type="button"
+                  onClick={() => setIsCheckinModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  + Nuevo Check-in
+                </button>
+              </div>
             </div>
 
             {(!checkins || checkins.length === 0) ? (
-              <div className="py-12 text-center text-xs text-[#64748b]">
-                El paciente no ha enviado reportes de check-in semanales todavía.
+              <div className="py-12 text-center text-xs text-[#64748b] space-y-3">
+                <p>El paciente no ha enviado reportes de check-in semanales todavía.</p>
+                <button
+                  type="button"
+                  onClick={() => setIsCheckinModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#162229] px-4 py-2 text-xs font-bold text-[#34d399] hover:bg-[#1e2e38] transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Registrar Primera Medición Semanal
+                </button>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -658,6 +721,274 @@ export default function PatientDetailClient({
         photos={allPhotos}
         initialIndex={galleryIndex}
       />
+
+      {/* Modal de Registro de Check-in para el Admin */}
+      {isCheckinModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="my-8 w-full max-w-xl rounded-3xl border border-white/10 bg-[#111a1f] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <h3 className="font-heading text-lg font-bold text-white">
+                  Registrar Check-in Semanal
+                </h3>
+                <p className="text-xs text-[#94a3b8]">
+                  Paciente: <strong className="text-white">{patient.profiles?.full_name || 'Paciente'}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCheckinModalOpen(false)}
+                className="rounded-lg p-1 text-[#94a3b8] hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {checkinSuccess ? (
+              <div className="my-6 rounded-2xl bg-[#14352b] p-6 text-center text-xs font-bold text-[#a7f3d0]">
+                <CheckCircle2 className="mx-auto mb-2 h-10 w-10 text-[#34d399]" />
+                <p className="text-sm font-bold text-white">¡Check-in registrado exitosamente!</p>
+                <p className="mt-1 text-[#a7f3d0]">Actualizando expediente y gráficas...</p>
+              </div>
+            ) : (
+              <form onSubmit={handleAdminSubmitCheckin} className="mt-4 space-y-4">
+                {checkinError && (
+                  <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{checkinError}</span>
+                  </div>
+                )}
+
+                {/* Fecha y Peso */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#94a3b8]">Fecha de la Medición *</label>
+                    <input
+                      type="date"
+                      name="checkinDate"
+                      required
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#94a3b8]">Peso en Ayunas (kg) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="weightKg"
+                      required
+                      placeholder="Ej. 65.4"
+                      defaultValue={currentWeight || ''}
+                      onFocus={(e) => e.target.select()}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                    />
+                  </div>
+                </div>
+
+                {/* Circunferencias */}
+                <div className="rounded-2xl border border-white/5 bg-[#162229]/60 p-3.5">
+                  <h4 className="text-xs font-bold text-[#38bdf8] mb-2.5 flex items-center gap-1.5">
+                    <Ruler className="h-3.5 w-3.5" />
+                    Medidas de Circunferencias (cm)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Cintura (ombligo)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        name="waistCm"
+                        placeholder="Ej. 72"
+                        defaultValue={waistCm || ''}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Cadera / Glúteos</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        name="hipCm"
+                        placeholder="Ej. 96"
+                        defaultValue={hipCm || ''}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Cuello</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        name="neckCm"
+                        placeholder="Ej. 34"
+                        defaultValue={neckCm || ''}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Muslo</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        name="thighCm"
+                        placeholder="Ej. 52"
+                        defaultValue={thighCm || ''}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Brazo</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        name="armCm"
+                        placeholder="Ej. 28"
+                        defaultValue={armCm || ''}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#94a3b8]">Adherencia</label>
+                      <select
+                        name="adherenceScore"
+                        defaultValue="10"
+                        className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#111a1f] px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                      >
+                        {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) => (
+                          <option key={n} value={n}>
+                            {n} / 10
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sensaciones */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-[#94a3b8]">Hambre</label>
+                    <select
+                      name="hungerLevel"
+                      defaultValue="medio"
+                      className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#162229] px-2 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="bajo">Bajo</option>
+                      <option value="medio">Medio</option>
+                      <option value="alto">Alto</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[#94a3b8]">Energía</label>
+                    <select
+                      name="energyLevel"
+                      defaultValue="buena"
+                      className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#162229] px-2 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="bajo">Baja</option>
+                      <option value="medio">Media</option>
+                      <option value="alto">Alta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[#94a3b8]">Sueño</label>
+                    <select
+                      name="sleepQuality"
+                      defaultValue="buena"
+                      className="mt-0.5 w-full rounded-xl border border-white/10 bg-[#162229] px-2 py-1.5 text-xs text-white focus:outline-none"
+                    >
+                      <option value="buena">Bueno</option>
+                      <option value="regular">Regular</option>
+                      <option value="mala">Malo</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fotos Opcionales */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#94a3b8] mb-1">
+                    Adjuntar Fotos del Paciente (Opcional - WhatsApp/Email)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="block text-[10px] text-[#64748b] mb-0.5">Frente</span>
+                      <input
+                        type="file"
+                        name="photo_front"
+                        accept="image/*"
+                        className="w-full text-[10px] text-[#94a3b8] file:mr-1 file:rounded-lg file:border-0 file:bg-[#162229] file:px-2 file:py-1 file:text-[10px] file:text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-[#64748b] mb-0.5">Perfil</span>
+                      <input
+                        type="file"
+                        name="photo_side"
+                        accept="image/*"
+                        className="w-full text-[10px] text-[#94a3b8] file:mr-1 file:rounded-lg file:border-0 file:bg-[#162229] file:px-2 file:py-1 file:text-[10px] file:text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-[#64748b] mb-0.5">Espalda</span>
+                      <input
+                        type="file"
+                        name="photo_back"
+                        accept="image/*"
+                        className="w-full text-[10px] text-[#94a3b8] file:mr-1 file:rounded-lg file:border-0 file:bg-[#162229] file:px-2 file:py-1 file:text-[10px] file:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notas clínicas */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#94a3b8]">Notas Clínicas & Observaciones</label>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    placeholder="Ej. Medición tomada en consulta. Adherencia al 100%..."
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] p-2.5 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                  />
+                </div>
+
+                {/* Botones de acción */}
+                <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsCheckinModalOpen(false)}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-[#94a3b8] hover:bg-white/10 hover:text-white transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingCheckin}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-5 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSubmittingCheckin ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Guardando medición...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        Guardar Check-in Semanal
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
