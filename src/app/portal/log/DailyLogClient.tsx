@@ -124,7 +124,7 @@ export default function DailyLogClient({
             <div key={key} className="rounded-2xl border border-white/10 bg-[#111a1f] p-4 shadow-sm">
               <div className="flex items-center justify-between text-xs font-bold text-white">
                 <span>{label}</span>
-                <span className="text-[#94a3b8]">{currentVal === '' ? 0 : currentVal} / {target}</span>
+                <span className="text-[#94a3b8]">{currentVal || 0} / {target}</span>
               </div>
 
               {/* Barra de progreso */}

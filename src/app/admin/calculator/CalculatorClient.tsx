@@ -76,7 +76,6 @@ export default function CalculatorClient({
   const [newPatientEmail, setNewPatientEmail] = useState('');
   const [newPatientGender, setNewPatientGender] = useState<'male' | 'female'>('female');
   const [newPatientBirthDate, setNewPatientBirthDate] = useState('1998-05-15');
-  const [newPatientHeight, setNewPatientHeight] = useState<number>(165);
   const [newPatientWeight, setNewPatientWeight] = useState<number | ''>(60);
   const [newPatientHeight, setNewPatientHeight] = useState<number | ''>(165);
   const [newPatientGoal, setNewPatientGoal] = useState('Recomposición');
@@ -1006,7 +1005,7 @@ export default function CalculatorClient({
             <div className="lg:col-span-8 xl:col-span-9">
               <SlideDeckPreview
                 patientName={selectedPatient?.fullName || 'Paciente'}
-                weightKg={weightKg}
+                weightKg={safeWeight}
                 goal={planGoal}
                 portions={portions}
                 meals={meals}
