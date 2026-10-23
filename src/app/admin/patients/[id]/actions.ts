@@ -76,31 +76,54 @@ export async function adminSubmitCheckinAction(patientId: string, formData: Form
     const v = validation.data;
 
     // 3. Insertar o actualizar registro en weekly_checkins
-    const { data: checkin, error: checkinError } = await supabase
+    const { data: existingCheckin } = await supabase
       .from('weekly_checkins')
-      .upsert(
-        {
-          patient_id: patient.id,
-          checkin_date: v.checkinDate,
-          weight_kg: v.weightKg,
-          waist_cm: v.waistCm || null,
-          hip_cm: v.hipCm || null,
-          thigh_cm: v.thighCm || null,
-          arm_cm: v.armCm || null,
-          neck_cm: v.neckCm || null,
-          adherence_score: v.adherenceScore,
-          hunger_level: v.hungerLevel || null,
-          energy_level: v.energyLevel || null,
-          sleep_quality: v.sleepQuality || null,
-          notes: v.notes || 'Registrado por nutricionista/admin',
-        },
-        { onConflict: 'patient_id,checkin_date' }
-      )
       .select('id')
-      .single();
+      .eq('patient_id', patient.id)
+      .eq('checkin_date', v.checkinDate)
+      .maybeSingle();
 
-    if (checkinError || !checkin) {
-      return { error: `Error al registrar reporte semanal: ${checkinError?.message || 'Error en BD'}` };
+    let checkinId: string;
+
+    const checkinPayload = {
+      patient_id: patient.id,
+      checkin_date: v.checkinDate,
+      weight_kg: v.weightKg,
+      waist_cm: v.waistCm || null,
+      hip_cm: v.hipCm || null,
+      thigh_cm: v.thighCm || null,
+      arm_cm: v.armCm || null,
+      neck_cm: v.neckCm || null,
+      adherence_score: v.adherenceScore,
+      hunger_level: v.hungerLevel || null,
+      energy_level: v.energyLevel || null,
+      sleep_quality: v.sleepQuality || null,
+      notes: v.notes || 'Registrado por nutricionista/admin',
+    };
+
+    if (existingCheckin?.id) {
+      const { data: updated, error: updateError } = await supabase
+        .from('weekly_checkins')
+        .update(checkinPayload)
+        .eq('id', existingCheckin.id)
+        .select('id')
+        .single();
+
+      if (updateError || !updated) {
+        return { error: `Error al actualizar reporte semanal: ${updateError?.message || 'Error en BD'}` };
+      }
+      checkinId = updated.id;
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from('weekly_checkins')
+        .insert(checkinPayload)
+        .select('id')
+        .single();
+
+      if (insertError || !inserted) {
+        return { error: `Error al registrar reporte semanal: ${insertError?.message || 'Error en BD'}` };
+      }
+      checkinId = inserted.id;
     }
 
     // 4. Actualizar peso actual y % de grasa en patient_profiles
@@ -136,7 +159,7 @@ export async function adminSubmitCheckinAction(patientId: string, formData: Form
         const file = formData.get(`photo_${pType}`) as File | null;
         if (file && file.size > 0) {
           const ext = file.type === 'image/webp' ? 'webp' : 'jpg';
-          const path = `${patient.user_id}/${checkin.id}_${pType}.${ext}`;
+          const path = `${patient.user_id}/${checkinId}_${pType}.${ext}`;
 
           const { error: uploadError } = await supabase.storage
             .from('patient-photos')
@@ -144,7 +167,7 @@ export async function adminSubmitCheckinAction(patientId: string, formData: Form
 
           if (!uploadError) {
             await supabase.from('checkin_photos').insert({
-              checkin_id: checkin.id,
+              checkin_id: checkinId,
               photo_type: pType,
               storage_path: path,
             });

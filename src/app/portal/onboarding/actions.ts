@@ -104,20 +104,31 @@ export async function savePatientOnboardingAction(input: PatientOnboardingInput)
   }
 
   // 5. Crear check-in basal inicial en weekly_checkins
-  await supabase.from('weekly_checkins').upsert(
-    {
-      patient_id: patientProfile.id,
-      checkin_date: new Date().toISOString().split('T')[0],
-      weight_kg: input.weightKg,
-      waist_cm: input.waistCm || null,
-      hip_cm: input.hipCm || null,
-      neck_cm: input.neckCm || null,
-      adherence_score: 10,
-      energy_level: 'Excelente (Línea Base)',
-      notes: 'Registro antropométrico inicial de onboarding',
-    },
-    { onConflict: 'patient_id,checkin_date' }
-  );
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: existingCheckin } = await supabase
+    .from('weekly_checkins')
+    .select('id')
+    .eq('patient_id', patientProfile.id)
+    .eq('checkin_date', todayStr)
+    .maybeSingle();
+
+  const basalPayload = {
+    patient_id: patientProfile.id,
+    checkin_date: todayStr,
+    weight_kg: input.weightKg,
+    waist_cm: input.waistCm || null,
+    hip_cm: input.hipCm || null,
+    neck_cm: input.neckCm || null,
+    adherence_score: 10,
+    energy_level: 'Excelente (Línea Base)',
+    notes: 'Registro antropométrico inicial de onboarding',
+  };
+
+  if (existingCheckin?.id) {
+    await supabase.from('weekly_checkins').update(basalPayload).eq('id', existingCheckin.id);
+  } else {
+    await supabase.from('weekly_checkins').insert(basalPayload);
+  }
 
   revalidatePath('/portal/plan');
   revalidatePath('/portal/onboarding');

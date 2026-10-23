@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS public.weekly_checkins (
     sleep_quality TEXT,
     notes TEXT,
     admin_feedback TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_patient_checkin_date UNIQUE (patient_id, checkin_date)
 );
 CREATE INDEX IF NOT EXISTS idx_checkins_patient_date ON public.weekly_checkins(patient_id, checkin_date DESC);
 
