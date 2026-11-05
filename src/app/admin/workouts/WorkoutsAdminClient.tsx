@@ -18,7 +18,11 @@ import {
   WorkoutLogEntry,
   ExerciseCatalogItem,
 } from '@/domain/entities/workout';
-import { saveWorkoutPlanAction } from './actions';
+import {
+  saveWorkoutPlanAction,
+  createExerciseInCatalogAction,
+  deleteExerciseFromCatalogAction,
+} from './actions';
 import WorkoutSessionTracker from '@/components/portal/WorkoutSessionTracker';
 import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
 import {
@@ -53,14 +57,19 @@ export interface PatientWorkoutSummary {
 interface WorkoutsAdminClientProps {
   patients: PatientWorkoutSummary[];
   initialPatientId?: string;
+  initialCatalog?: ExerciseCatalogItem[];
 }
 
 export default function WorkoutsAdminClient({
   patients,
   initialPatientId,
+  initialCatalog,
 }: WorkoutsAdminClientProps) {
   const router = useRouter();
   const [patientsList, setPatientsList] = useState<PatientWorkoutSummary[]>(patients);
+  const [catalogList, setCatalogList] = useState<ExerciseCatalogItem[]>(
+    initialCatalog && initialCatalog.length > 0 ? initialCatalog : EXERCISE_LIBRARY
+  );
   const [selectedPatientId, setSelectedPatientId] = useState<string>(
     initialPatientId || patients[0]?.id || ''
   );
@@ -95,10 +104,14 @@ export default function WorkoutsAdminClient({
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | 'Todos'>('Todos');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('Todos');
 
-  // Ejercicio personalizado al vuelo
+  // Ejercicio nuevo para guardar en la Base de Datos (exercise_catalog)
   const [customExName, setCustomExName] = useState('');
   const [customExMuscle, setCustomExMuscle] = useState<MuscleGroup>('Pecho');
   const [customExEquipment, setCustomExEquipment] = useState('Máquina');
+  const [customExSets, setCustomExSets] = useState<number>(3);
+  const [customExReps, setCustomExReps] = useState<string>('8-12');
+  const [isCreatingCatalogEx, setIsCreatingCatalogEx] = useState(false);
+  const [catalogExMessage, setCatalogExMessage] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -214,22 +227,60 @@ export default function WorkoutsAdminClient({
     });
   }
 
-  // Agregar ejercicio personalizado creado por el admin
-  function handleAddCustomExercise(e: React.FormEvent) {
+  // Crear ejercicio en la Base de Datos (tabla exercise_catalog) y añadirlo al día actual
+  async function handleAddCustomExercise(e: React.FormEvent) {
     e.preventDefault();
     if (!customExName.trim()) return;
-    const customItem: ExerciseCatalogItem = {
-      id: `custom-${Date.now()}`,
-      name: customExName.trim(),
-      muscleGroup: customExMuscle,
-      equipment: customExEquipment,
-      defaultSets: 3,
-      defaultReps: '8-12',
-      defaultRir: 'RIR 1-2',
-      defaultRestSeconds: 90,
-    };
-    handleAddExerciseFromCatalog(customItem);
-    setCustomExName('');
+    setIsCreatingCatalogEx(true);
+    setCatalogExMessage(null);
+
+    try {
+      const res = await createExerciseInCatalogAction({
+        name: customExName.trim(),
+        muscleGroup: customExMuscle,
+        equipment: customExEquipment.trim() || 'Máquina',
+        defaultSets: customExSets,
+        defaultReps: customExReps,
+        defaultRir: 'RIR 1-2',
+        defaultRestSeconds: 90,
+      });
+
+      if (res?.success && res.exercise) {
+        setCatalogList((prev) => [res.exercise!, ...prev]);
+        handleAddExerciseFromCatalog(res.exercise);
+        setCustomExName('');
+        setCatalogExMessage(`✓ "${res.exercise.name}" guardado en la base de datos y añadido al día.`);
+        setTimeout(() => setCatalogExMessage(null), 4000);
+      } else {
+        // Si aún no corrieron la query de exercise_catalog, igual añadirlo y avisar
+        const fallbackItem: ExerciseCatalogItem = {
+          id: `custom-${Date.now()}`,
+          name: customExName.trim(),
+          muscleGroup: customExMuscle,
+          equipment: customExEquipment,
+          defaultSets: customExSets,
+          defaultReps: customExReps,
+          defaultRir: 'RIR 1-2',
+          defaultRestSeconds: 90,
+          isCustom: true,
+        };
+        setCatalogList((prev) => [fallbackItem, ...prev]);
+        handleAddExerciseFromCatalog(fallbackItem);
+        setCustomExName('');
+        setCatalogExMessage(res?.error || 'Añadido a la sesión actual');
+      }
+    } finally {
+      setIsCreatingCatalogEx(false);
+    }
+  }
+
+  async function handleDeleteFromCatalog(exerciseId: string, exerciseName: string) {
+    const res = await deleteExerciseFromCatalogAction(exerciseId);
+    if (res?.success) {
+      setCatalogList((prev) => prev.filter((item) => item.id !== exerciseId));
+    } else if (res?.error) {
+      alert(`Error al eliminar "${exerciseName}": ${res.error}`);
+    }
   }
 
   // Editar un ejercicio dentro del día actual
@@ -297,9 +348,9 @@ export default function WorkoutsAdminClient({
     return null;
   }
 
-  // Filtrar catálogo de ejercicios
+  // Filtrar catálogo de ejercicios desde la base de datos
   const filteredCatalog = useMemo(() => {
-    return EXERCISE_LIBRARY.filter((item) => {
+    return catalogList.filter((item) => {
       if (selectedMuscle !== 'Todos' && item.muscleGroup !== selectedMuscle) return false;
       if (
         selectedEquipment !== 'Todos' &&
@@ -317,7 +368,7 @@ export default function WorkoutsAdminClient({
       }
       return true;
     });
-  }, [searchQuery, selectedMuscle, selectedEquipment]);
+  }, [catalogList, searchQuery, selectedMuscle, selectedEquipment]);
 
   async function handleSaveRoutine() {
     if (!selectedPatientId) {
@@ -860,10 +911,10 @@ export default function WorkoutsAdminClient({
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <div>
                     <h3 className="font-heading text-base font-extrabold text-white">
-                      Biblioteca de Ejercicios ({EXERCISE_LIBRARY.length}+)
+                      Biblioteca de Ejercicios en BD ({catalogList.length})
                     </h3>
                     <p className="text-[11px] text-[#94a3b8]">
-                      Pulsa en cualquier ejercicio para añadirlo a <strong>{currentDay?.name}</strong>
+                      Pulsa en cualquier ejercicio para añadirlo a <strong>{currentDay?.name}</strong> o agrega nuevos a tu base de datos
                     </p>
                   </div>
                 </div>
@@ -936,8 +987,15 @@ export default function WorkoutsAdminClient({
                       className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-[#162229] p-2.5 hover:border-[#34d399]/50 transition"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-xs font-bold text-white">
-                          {item.name}
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-bold text-white">
+                            {item.name}
+                          </span>
+                          {item.isCustom && (
+                            <span className="shrink-0 rounded bg-[#14352b] px-1.5 py-0.5 text-[9px] font-bold text-[#34d399] border border-[#245748]">
+                              Propio (BD)
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-[#94a3b8]">
                           <span className="text-[#38bdf8] font-semibold">{item.muscleGroup}</span> •{' '}
@@ -945,30 +1003,53 @@ export default function WorkoutsAdminClient({
                           {item.defaultRir})
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleAddExerciseFromCatalog(item)}
-                        className="flex shrink-0 items-center gap-1 rounded-xl bg-[#14352b] border border-[#245748] px-2.5 py-1.5 text-[11px] font-bold text-[#34d399] hover:bg-[#1b4337] hover:text-white transition cursor-pointer"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Añadir
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {item.isCustom && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFromCatalog(item.id, item.name)}
+                            className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                            title="Eliminar ejercicio de la base de datos"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleAddExerciseFromCatalog(item)}
+                          className="flex items-center gap-1 rounded-xl bg-[#14352b] border border-[#245748] px-2.5 py-1.5 text-[11px] font-bold text-[#34d399] hover:bg-[#1b4337] hover:text-white transition cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Añadir
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Crear Ejercicio Personalizado */}
+                {/* Crear Ejercicio Nuevo Permanentemente en la Base de Datos */}
                 <form
                   onSubmit={handleAddCustomExercise}
-                  className="border-t border-white/10 pt-3 space-y-2"
+                  className="border-t border-white/10 pt-3 space-y-2.5"
                 >
-                  <div className="text-[11px] font-bold text-[#a7f3d0]">
-                    ¿No encuentras una variante específica? Añádela al instante:
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#a7f3d0]">
+                      + Guardar Nuevo Ejercicio en la Base de Datos:
+                    </span>
+                    <span className="text-[10px] text-[#64748b]">Queda guardado para todos tus pacientes</span>
                   </div>
+
+                  {catalogExMessage && (
+                    <div className="rounded-xl border border-[#34d399]/30 bg-[#14352b]/70 px-3 py-1.5 text-[11px] font-semibold text-[#a7f3d0]">
+                      {catalogExMessage}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <input
                       type="text"
-                      placeholder="Nombre del ejercicio..."
+                      required
+                      placeholder="Nombre (ej. Prensa Péndulo Unilateral)"
                       value={customExName}
                       onChange={(e) => setCustomExName(e.target.value)}
                       className="sm:col-span-2 rounded-xl border border-white/10 bg-[#162229] px-3 py-1.5 text-xs text-white focus:border-[#34d399] focus:outline-none"
@@ -985,21 +1066,54 @@ export default function WorkoutsAdminClient({
                       ))}
                     </select>
                   </div>
-                  <div className="flex gap-2">
+
+                  <div className="grid grid-cols-3 gap-2">
                     <input
                       type="text"
-                      placeholder="Equipo (ej. Máquina Pendular, Banda...)"
+                      placeholder="Equipo (ej. Máquina, Polea)"
                       value={customExEquipment}
                       onChange={(e) => setCustomExEquipment(e.target.value)}
-                      className="flex-1 rounded-xl border border-white/10 bg-[#162229] px-3 py-1.5 text-xs text-white focus:outline-none"
+                      className="rounded-xl border border-white/10 bg-[#162229] px-3 py-1.5 text-xs text-white focus:outline-none"
                     />
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-[#34d399] px-3 py-1.5 text-xs font-bold text-[#0d1518] hover:bg-[#34d399]/90 transition cursor-pointer"
-                    >
-                      + Crear y Añadir
-                    </button>
+                    <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#162229] px-2.5 py-1.5">
+                      <span className="text-[10px] text-[#94a3b8]">Series:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={customExSets}
+                        onChange={(e) => setCustomExSets(Math.max(1, Number(e.target.value) || 3))}
+                        className="w-full bg-transparent text-center text-xs font-bold text-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#162229] px-2.5 py-1.5">
+                      <span className="text-[10px] text-[#94a3b8]">Reps:</span>
+                      <input
+                        type="text"
+                        value={customExReps}
+                        onChange={(e) => setCustomExReps(e.target.value)}
+                        className="w-full bg-transparent text-center text-xs font-bold text-[#38bdf8] focus:outline-none"
+                      />
+                    </div>
                   </div>
+
+                  <button
+                    type="submit"
+                    disabled={isCreatingCatalogEx}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#34d399] px-3 py-2 text-xs font-extrabold text-[#0d1518] hover:bg-[#34d399]/90 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {isCreatingCatalogEx ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Guardando en Base de Datos...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5" />
+                        Guardar en Base de Datos y Añadir al Día
+                      </>
+                    )}
+                  </button>
                 </form>
               </div>
             </div>
@@ -1032,3 +1146,4 @@ export default function WorkoutsAdminClient({
     </div>
   );
 }
+

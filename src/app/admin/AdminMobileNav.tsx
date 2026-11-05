@@ -69,11 +69,10 @@ export default function AdminMobileNav({
                   key={link.href}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${
-                    isActive
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${isActive
                       ? 'border border-[#245748] bg-[#14352b] text-white shadow-sm'
                       : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-                  }`}
+                    }`}
                 >
                   <Icon className={`h-4 w-4 ${link.color}`} />
                   {link.label}

@@ -324,8 +324,34 @@ CREATE TABLE IF NOT EXISTS public.workout_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_workout_logs_patient ON public.workout_logs(patient_id, log_date DESC);
 
+-- 14. TABLA DE CATÁLOGO / BIBLIOTECA DE EJERCICIOS EN BASE DE DATOS (EXERCISE CATALOG)
+CREATE TABLE IF NOT EXISTS public.exercise_catalog (
+    id TEXT PRIMARY KEY DEFAULT ('ex-' || gen_random_uuid()::text),
+    name TEXT NOT NULL,
+    muscle_group TEXT NOT NULL,
+    equipment TEXT NOT NULL DEFAULT 'Máquina',
+    default_sets INT NOT NULL DEFAULT 3,
+    default_reps TEXT NOT NULL DEFAULT '8-12',
+    default_rir TEXT NOT NULL DEFAULT 'RIR 1-2',
+    default_rest_seconds INT NOT NULL DEFAULT 90,
+    tips TEXT,
+    is_custom BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exercise_catalog_muscle ON public.exercise_catalog(muscle_group);
+
 ALTER TABLE public.workout_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workout_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exercise_catalog ENABLE ROW LEVEL SECURITY;
+
+-- Exercise Catalog Policies:
+DROP POLICY IF EXISTS "Allow authenticated read exercise_catalog" ON public.exercise_catalog;
+DROP POLICY IF EXISTS "Admins full access to exercise_catalog" ON public.exercise_catalog;
+CREATE POLICY "Allow authenticated read exercise_catalog" ON public.exercise_catalog
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins full access to exercise_catalog" ON public.exercise_catalog
+    FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Workout Plans Policies:
 DROP POLICY IF EXISTS "Admins full access to workout_plans" ON public.workout_plans;

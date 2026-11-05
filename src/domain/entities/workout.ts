@@ -48,6 +48,7 @@ export interface ExerciseCatalogItem {
   defaultRir: string;
   defaultRestSeconds: number;
   tips?: string;
+  isCustom?: boolean;
 }
 
 export interface RoutineExercise {
@@ -916,3 +917,4 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     ],
   },
 ];
+

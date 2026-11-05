@@ -4,7 +4,15 @@
 
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { WorkoutDay, LoggedExercise, WorkoutPlan, WorkoutLogEntry } from '@/domain/entities/workout';
+import {
+  WorkoutDay,
+  LoggedExercise,
+  WorkoutPlan,
+  WorkoutLogEntry,
+  ExerciseCatalogItem,
+  EXERCISE_LIBRARY,
+  MuscleGroup,
+} from '@/domain/entities/workout';
 
 export interface SaveWorkoutPlanInput {
   patientId: string;
@@ -320,5 +328,176 @@ export async function saveWorkoutLogAction(input: SaveWorkoutLogInput) {
     return { success: true, log: logEntry };
   } catch (err: any) {
     return { error: err?.message || 'Error al registrar el entrenamiento' };
+  }
+}
+
+export interface CreateCatalogExerciseInput {
+  name: string;
+  muscleGroup: MuscleGroup;
+  equipment: string;
+  defaultSets?: number;
+  defaultReps?: string;
+  defaultRir?: string;
+  defaultRestSeconds?: number;
+  tips?: string;
+}
+
+/**
+ * Obtiene el catálogo completo de ejercicios desde la tabla exercise_catalog en Supabase.
+ * Si la tabla está vacía por primera vez, siembra automáticamente los ejercicios base en la BD.
+ */
+export async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
+  const supabase = await createServerSupabaseClient();
+
+  const { data: rows, error } = await supabase
+    .from('exercise_catalog')
+    .select('*')
+    .order('is_custom', { ascending: false })
+    .order('name', { ascending: true });
+
+  // Si la tabla existe y está vacía, sembrar los ejercicios base automáticamente en la BD
+  if (!error && rows && rows.length === 0) {
+    const seedPayload = EXERCISE_LIBRARY.map((item) => ({
+      id: item.id,
+      name: item.name,
+      muscle_group: item.muscleGroup,
+      equipment: item.equipment,
+      default_sets: item.defaultSets,
+      default_reps: item.defaultReps,
+      default_rir: item.defaultRir,
+      default_rest_seconds: item.defaultRestSeconds,
+      tips: item.tips || null,
+      is_custom: false,
+    }));
+
+    const { data: seededRows, error: seedErr } = await supabase
+      .from('exercise_catalog')
+      .upsert(seedPayload, { onConflict: 'id' })
+      .select('*');
+
+    if (!seedErr && seededRows && seededRows.length > 0) {
+      return seededRows.map(mapRowToCatalogItem);
+    }
+  }
+
+  if (!error && rows && rows.length > 0) {
+    // Asegurar que estén tanto los de la BD como cualquier ejercicio base nuevo
+    const dbItems = rows.map(mapRowToCatalogItem);
+    const dbIds = new Set(dbItems.map((i) => i.id));
+    const missingBase = EXERCISE_LIBRARY.filter((b) => !dbIds.has(b.id));
+    return [...dbItems, ...missingBase];
+  }
+
+  // Fallback si la tabla aún no fue creada en Supabase SQL Editor
+  return EXERCISE_LIBRARY;
+}
+
+function mapRowToCatalogItem(row: any): ExerciseCatalogItem {
+  return {
+    id: row.id,
+    name: row.name,
+    muscleGroup: row.muscle_group as MuscleGroup,
+    equipment: row.equipment || 'Máquina',
+    defaultSets: Number(row.default_sets) || 3,
+    defaultReps: row.default_reps || '8-12',
+    defaultRir: row.default_rir || 'RIR 1-2',
+    defaultRestSeconds: Number(row.default_rest_seconds) || 90,
+    tips: row.tips || undefined,
+    isCustom: Boolean(row.is_custom),
+  };
+}
+
+/**
+ * Crea un nuevo ejercicio permanentemente en la tabla exercise_catalog de la Base de Datos
+ */
+export async function createExerciseInCatalogAction(input: CreateCatalogExerciseInput) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado' };
+    }
+
+    const cleanName = input.name.trim();
+    if (!cleanName) {
+      return { error: 'El nombre del ejercicio es obligatorio' };
+    }
+
+    const slug = cleanName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const newId = `custom-${slug}-${Date.now().toString(36)}`;
+
+    const payload = {
+      id: newId,
+      name: cleanName,
+      muscle_group: input.muscleGroup,
+      equipment: input.equipment.trim() || 'Máquina',
+      default_sets: input.defaultSets || 3,
+      default_reps: input.defaultReps?.trim() || '8-12',
+      default_rir: input.defaultRir?.trim() || 'RIR 1-2',
+      default_rest_seconds: input.defaultRestSeconds || 90,
+      tips: input.tips?.trim() || null,
+      is_custom: true,
+      created_by: user.id,
+    };
+
+    const { data: inserted, error } = await supabase
+      .from('exercise_catalog')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      return {
+        error: `No se pudo guardar en la tabla exercise_catalog (${error.message}). Asegúrate de ejecutar la query de exercise_catalog en Supabase.`,
+      };
+    }
+
+    revalidatePath('/admin/workouts');
+
+    return {
+      success: true,
+      exercise: mapRowToCatalogItem(inserted),
+    };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al guardar el ejercicio en la base de datos' };
+  }
+}
+
+/**
+ * Elimina un ejercicio del catálogo en la Base de Datos
+ */
+export async function deleteExerciseFromCatalogAction(exerciseId: string) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado' };
+    }
+
+    const { error } = await supabase
+      .from('exercise_catalog')
+      .delete()
+      .eq('id', exerciseId);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/admin/workouts');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al eliminar ejercicio' };
   }
 }
