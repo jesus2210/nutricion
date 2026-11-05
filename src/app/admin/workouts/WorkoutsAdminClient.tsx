@@ -17,11 +17,14 @@ import {
   WorkoutPlan,
   WorkoutLogEntry,
   ExerciseCatalogItem,
+  WorkoutTemplate,
 } from '@/domain/entities/workout';
 import {
   saveWorkoutPlanAction,
   createExerciseInCatalogAction,
   deleteExerciseFromCatalogAction,
+  saveWorkoutTemplateAction,
+  deleteWorkoutTemplateAction,
 } from './actions';
 import WorkoutSessionTracker from '@/components/portal/WorkoutSessionTracker';
 import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
@@ -42,6 +45,8 @@ import {
   Loader2,
   Copy,
   TrendingUp,
+  BookmarkPlus,
+  BookmarkCheck,
 } from 'lucide-react';
 
 export interface PatientWorkoutSummary {
@@ -58,17 +63,22 @@ interface WorkoutsAdminClientProps {
   patients: PatientWorkoutSummary[];
   initialPatientId?: string;
   initialCatalog?: ExerciseCatalogItem[];
+  initialTemplates?: WorkoutTemplate[];
 }
 
 export default function WorkoutsAdminClient({
   patients,
   initialPatientId,
   initialCatalog,
+  initialTemplates,
 }: WorkoutsAdminClientProps) {
   const router = useRouter();
   const [patientsList, setPatientsList] = useState<PatientWorkoutSummary[]>(patients);
   const [catalogList, setCatalogList] = useState<ExerciseCatalogItem[]>(
     initialCatalog && initialCatalog.length > 0 ? initialCatalog : EXERCISE_LIBRARY
+  );
+  const [templatesList, setTemplatesList] = useState<WorkoutTemplate[]>(
+    initialTemplates && initialTemplates.length > 0 ? initialTemplates : WORKOUT_TEMPLATES
   );
   const [selectedPatientId, setSelectedPatientId] = useState<string>(
     initialPatientId || patients[0]?.id || ''
@@ -117,6 +127,10 @@ export default function WorkoutsAdminClient({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Estado para guardar rutina como Plantilla Reutilizable en BD
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSuccessMsg, setTemplateSuccessMsg] = useState<string | null>(null);
+
   const currentDay: WorkoutDay | undefined = routineDays[activeDayIdx] || routineDays[0];
 
   // Sincronizar al cambiar de paciente en el selector
@@ -140,16 +154,87 @@ export default function WorkoutsAdminClient({
     setSaveError(null);
   }
 
-  // Cargar una plantilla predefinida
+  // Cargar una plantilla (base o guardada por el nutricionista en BD)
   function handleLoadTemplate(templateId: string) {
-    const tpl = WORKOUT_TEMPLATES.find((t) => t.id === templateId);
+    const tpl = templatesList.find((t) => t.id === templateId);
     if (!tpl) return;
+    const cleanBaseTitle = tpl.title.split('•')[0].trim();
     setRoutineTitle(
-      selectedPatient ? `${tpl.title} • ${selectedPatient.fullName}` : tpl.title
+      selectedPatient ? `${cleanBaseTitle} • ${selectedPatient.fullName}` : tpl.title
     );
     setRoutineGoal(tpl.goal);
     setRoutineDays(structuredClone(tpl.days));
     setActiveDayIdx(0);
+    setTemplateSuccessMsg(
+      `✓ Plantilla "${cleanBaseTitle}" cargada en el constructor. Pulsa "Guardar y Asignar" para asignársela a ${selectedPatient?.fullName || 'este paciente'}.`
+    );
+    setTimeout(() => setTemplateSuccessMsg(null), 5000);
+  }
+
+  // Copiar la rutina activa de otro paciente con 1 clic
+  function handleCopyFromAnotherPatient(sourcePatientId: string) {
+    if (!sourcePatientId) return;
+    const sourcePat = patientsList.find((p) => p.id === sourcePatientId);
+    if (!sourcePat || !sourcePat.activePlan) return;
+
+    const cleanTitle = sourcePat.activePlan.title.split('•')[0].trim();
+    setRoutineTitle(
+      selectedPatient
+        ? `${cleanTitle} • ${selectedPatient.fullName}`
+        : sourcePat.activePlan.title
+    );
+    setRoutineGoal(sourcePat.activePlan.goal);
+    setRoutineDays(structuredClone(sourcePat.activePlan.days));
+    setActiveDayIdx(0);
+    setTemplateSuccessMsg(
+      `✓ Se copió la rutina de ${sourcePat.fullName} (${sourcePat.activePlan.days.length} días). Pulsa "Guardar y Asignar" para aplicársela a ${selectedPatient?.fullName || 'este paciente'}.`
+    );
+    setTimeout(() => setTemplateSuccessMsg(null), 5000);
+  }
+
+  // Guardar la rutina actual en la Base de Datos como Plantilla Reutilizable
+  async function handleSaveAsTemplate() {
+    setIsSavingTemplate(true);
+    setSaveError(null);
+    setTemplateSuccessMsg(null);
+
+    try {
+      // Limpiar el nombre del paciente si estaba al final después de "•"
+      const cleanTemplateTitle = routineTitle.includes('•')
+        ? routineTitle.split('•')[0].trim()
+        : routineTitle.trim();
+
+      const res = await saveWorkoutTemplateAction({
+        title: cleanTemplateTitle || 'Rutina Personalizada',
+        goal: routineGoal,
+        days: routineDays,
+      });
+
+      if (res?.success && res.template) {
+        setTemplatesList((prev) => [res.template!, ...prev]);
+        setTemplateSuccessMsg(
+          `✓ Rutina "${res.template.title}" guardada en Mis Plantillas (BD). Ahora puedes cargarla con 1 clic para cualquier otro paciente.`
+        );
+        setTimeout(() => setTemplateSuccessMsg(null), 6000);
+      } else {
+        setSaveError(res?.error || 'Error al guardar la plantilla');
+      }
+    } catch (err: any) {
+      setSaveError(err?.message || 'Error inesperado al guardar plantilla');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  }
+
+  async function handleDeleteTemplate(templateId: string, title: string) {
+    const res = await deleteWorkoutTemplateAction(templateId);
+    if (res?.success) {
+      setTemplatesList((prev) => prev.filter((t) => t.id !== templateId));
+      setTemplateSuccessMsg(`Plantilla "${title}" eliminada.`);
+      setTimeout(() => setTemplateSuccessMsg(null), 3500);
+    } else if (res?.error) {
+      setSaveError(res.error);
+    }
   }
 
   // Gestión de días de la rutina
@@ -490,33 +575,102 @@ export default function WorkoutsAdminClient({
           </button>
         </div>
 
-        {/* Botones de Plantillas Rápidas */}
+        {/* Botones de Plantillas Rápidas y Copiar Rutina de Otro Paciente */}
         {activeTab === 'builder' && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-[#94a3b8] mr-1">
-              Plantillas base:
-            </span>
-            {WORKOUT_TEMPLATES.map((tpl) => (
-              <button
-                key={tpl.id}
-                type="button"
-                onClick={() => handleLoadTemplate(tpl.id)}
-                className="flex items-center gap-1 rounded-xl border border-white/10 bg-[#162229] px-2.5 py-1.5 text-[11px] font-bold text-[#a7f3d0] hover:border-[#34d399] hover:text-white transition cursor-pointer"
-              >
-                <Sparkles className="h-3 w-3 text-[#34d399]" />
-                {tpl.title.split('•')[0]}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Copiar rutina activa de otro paciente */}
+            {patientsList.some((p) => p.activePlan && p.id !== selectedPatientId) && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#162229] px-2.5 py-1">
+                <Copy className="h-3 w-3 text-[#38bdf8]" />
+                <select
+                  value=""
+                  onChange={(e) => handleCopyFromAnotherPatient(e.target.value)}
+                  className="bg-transparent text-[11px] font-bold text-[#38bdf8] focus:outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-[#111a1f] text-[#94a3b8]">
+                    Copiar rutina de otro paciente...
+                  </option>
+                  {patientsList
+                    .filter((p) => p.activePlan && p.id !== selectedPatientId)
+                    .map((p) => (
+                      <option
+                        key={p.id}
+                        value={p.id}
+                        className="bg-[#111a1f] text-white"
+                      >
+                        {p.fullName} — {p.activePlan?.title} ({p.activePlan?.days.length}d)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* ==================== TAB 1: CONSTRUCTOR DE RUTINAS ==================== */}
       {activeTab === 'builder' && (
-        <div className="space-y-6">
-          {/* Título de la Rutina, Objetivo y Botón Guardar */}
+        <div className="space-y-5">
+          {/* Barra de Mis Rutinas Guardadas & Plantillas Reutilizables */}
+          <div className="rounded-2xl border border-white/10 bg-[#111a1f]/90 p-3.5 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <BookmarkCheck className="h-4 w-4 text-[#34d399]" />
+                <span className="text-xs font-extrabold text-white">
+                  Mis Rutinas Guardadas & Plantillas Reutilizables ({templatesList.length})
+                </span>
+                <span className="text-[11px] text-[#94a3b8]">
+                  — Haz clic en cualquiera para cargarla y asignársela a {selectedPatient?.fullName.split(' ')[0] || 'otro paciente'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {templatesList.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition ${
+                    tpl.isCustom
+                      ? 'border-[#245748] bg-[#14352b]/70 text-[#a7f3d0]'
+                      : 'border-white/10 bg-[#162229] text-[#cbd5e1]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleLoadTemplate(tpl.id)}
+                    className="flex items-center gap-1.5 font-bold hover:text-white cursor-pointer"
+                    title={`Cargar rutina "${tpl.title}" (${tpl.days.length} días)`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[#34d399] shrink-0" />
+                    <span>{tpl.title.split('•')[0].trim()}</span>
+                    <span className="rounded bg-black/30 px-1.5 py-0.5 text-[10px] text-[#34d399]">
+                      {tpl.days.length}d
+                    </span>
+                    {tpl.isCustom && (
+                      <span className="rounded bg-[#34d399]/20 px-1.5 py-0.5 text-[9px] font-extrabold text-[#34d399]">
+                        Guardada
+                      </span>
+                    )}
+                  </button>
+
+                  {tpl.isCustom && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(tpl.id, tpl.title)}
+                      className="ml-1 rounded p-0.5 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+                      title="Eliminar plantilla guardada"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Título de la Rutina, Objetivo, Botón Guardar Plantilla y Botón Asignar a Paciente */}
           <div className="grid grid-cols-1 gap-4 rounded-3xl border border-white/10 bg-[#111a1f] p-5 lg:grid-cols-12 lg:items-end">
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-4">
               <label className="block text-xs font-bold text-[#94a3b8]">
                 Nombre de la Rutina / Mesociclo
               </label>
@@ -529,7 +683,7 @@ export default function WorkoutsAdminClient({
               />
             </div>
 
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-3">
               <label className="block text-xs font-bold text-[#94a3b8]">
                 Enfoque / Objetivo del Plan
               </label>
@@ -542,17 +696,37 @@ export default function WorkoutsAdminClient({
               />
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="flex flex-col gap-2 sm:flex-row lg:col-span-5">
+              <button
+                type="button"
+                onClick={handleSaveAsTemplate}
+                disabled={isSavingTemplate}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#34d399]/40 bg-[#14352b]/60 px-3.5 py-2.5 text-xs font-extrabold text-[#a7f3d0] transition hover:bg-[#14352b] hover:text-white disabled:opacity-50 cursor-pointer"
+                title="Guarda esta rutina en tu biblioteca para asignársela después a cualquier otro paciente"
+              >
+                {isSavingTemplate ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Guardando Plantilla...
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="h-4 w-4 text-[#34d399]" />
+                    Guardar como Plantilla
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={handleSaveRoutine}
                 disabled={isSaving}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110 disabled:opacity-50 cursor-pointer"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110 disabled:opacity-50 cursor-pointer"
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Asignando Rutina...
+                    Asignando...
                   </>
                 ) : (
                   <>
@@ -563,6 +737,13 @@ export default function WorkoutsAdminClient({
               </button>
             </div>
           </div>
+
+          {templateSuccessMsg && (
+            <div className="flex items-center gap-2 rounded-2xl border border-[#38bdf8]/40 bg-[#0f2231] p-3.5 text-xs font-bold text-[#bae6fd]">
+              <BookmarkCheck className="h-4 w-4 text-[#38bdf8] shrink-0" />
+              <span>{templateSuccessMsg}</span>
+            </div>
+          )}
 
           {saveSuccess && (
             <div className="flex items-center gap-2 rounded-2xl border border-[#34d399]/40 bg-[#14352b] p-4 text-xs font-bold text-[#a7f3d0]">

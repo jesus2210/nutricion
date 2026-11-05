@@ -11,6 +11,8 @@ import {
   WorkoutLogEntry,
   ExerciseCatalogItem,
   EXERCISE_LIBRARY,
+  WORKOUT_TEMPLATES,
+  WorkoutTemplate,
   MuscleGroup,
 } from '@/domain/entities/workout';
 
@@ -352,6 +354,7 @@ export async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
   const { data: rows, error } = await supabase
     .from('exercise_catalog')
     .select('*')
+    .neq('muscle_group', '__ROUTINE_TEMPLATE__')
     .order('is_custom', { ascending: false })
     .order('name', { ascending: true });
 
@@ -499,5 +502,186 @@ export async function deleteExerciseFromCatalogAction(exerciseId: string) {
     return { success: true };
   } catch (err: any) {
     return { error: err?.message || 'Error al eliminar ejercicio' };
+  }
+}
+
+export interface SaveWorkoutTemplateInput {
+  title: string;
+  goal: string;
+  description?: string;
+  days: WorkoutDay[];
+}
+
+/**
+ * Obtiene todas las plantillas de rutinas (las base + las guardadas por el nutricionista en BD)
+ * Funciona de inmediato usando exercise_catalog (muscle_group = '__ROUTINE_TEMPLATE__') y/o workout_templates
+ */
+export async function getWorkoutTemplates(): Promise<WorkoutTemplate[]> {
+  const supabase = await createServerSupabaseClient();
+  const customTemplates: WorkoutTemplate[] = [];
+
+  // 1. Intentar leer desde tabla dedicada workout_templates (si existe)
+  const { data: dedicatedRows, error: dedErr } = await supabase
+    .from('workout_templates')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (!dedErr && dedicatedRows && dedicatedRows.length > 0) {
+    for (const row of dedicatedRows) {
+      customTemplates.push({
+        id: row.id,
+        title: row.title,
+        goal: row.goal || 'Hipertrofia & Fuerza',
+        description: row.description || `${Array.isArray(row.days_config_json) ? row.days_config_json.length : 0} días`,
+        days: Array.isArray(row.days_config_json) ? row.days_config_json : [],
+        isCustom: true,
+        createdAt: row.created_at,
+      });
+    }
+  }
+
+  // 2. Leer también desde exercise_catalog donde muscle_group = '__ROUTINE_TEMPLATE__' (respaldo sin requerir nueva tabla)
+  const { data: catRows, error: catErr } = await supabase
+    .from('exercise_catalog')
+    .select('*')
+    .eq('muscle_group', '__ROUTINE_TEMPLATE__')
+    .order('created_at', { ascending: false });
+
+  if (!catErr && catRows && catRows.length > 0) {
+    const existingIds = new Set(customTemplates.map((t) => t.id));
+    for (const row of catRows) {
+      if (existingIds.has(row.id)) continue;
+      try {
+        const parsed = JSON.parse(row.tips || '{}');
+        if (Array.isArray(parsed.days)) {
+          customTemplates.push({
+            id: row.id,
+            title: row.name,
+            goal: row.equipment || parsed.goal || 'Hipertrofia & Fuerza',
+            description: parsed.description || `${parsed.days.length} días`,
+            days: parsed.days,
+            isCustom: true,
+            createdAt: row.created_at,
+          });
+        }
+      } catch {
+        // Ignorar fila malformada
+      }
+    }
+  }
+
+  return [...customTemplates, ...WORKOUT_TEMPLATES];
+}
+
+/**
+ * Guarda una rutina completa como Plantilla Reutilizable en la Base de Datos
+ * para poder asignarla después a cualquier otro paciente con 1 clic
+ */
+export async function saveWorkoutTemplateAction(input: SaveWorkoutTemplateInput) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado. Inicia sesión como administrador.' };
+    }
+
+    const cleanTitle = input.title.trim();
+    if (!cleanTitle) {
+      return { error: 'Escribe un nombre para identificar tu rutina guardada.' };
+    }
+
+    if (!input.days || input.days.length === 0) {
+      return { error: 'La rutina debe tener al menos 1 día configurado.' };
+    }
+
+    const tplId = `tpl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const cleanGoal = input.goal.trim() || 'Hipertrofia & Fuerza';
+    const cleanDesc =
+      input.description?.trim() ||
+      `${input.days.length} días • Guardada para reutilizar`;
+
+    const newTemplate: WorkoutTemplate = {
+      id: tplId,
+      title: cleanTitle,
+      goal: cleanGoal,
+      description: cleanDesc,
+      days: input.days,
+      isCustom: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 1. Intentar guardar en workout_templates (si la tabla existe)
+    const { error: dedError } = await supabase.from('workout_templates').insert({
+      id: tplId,
+      title: cleanTitle,
+      goal: cleanGoal,
+      description: cleanDesc,
+      days_config_json: input.days,
+      created_by: user.id,
+    });
+
+    // 2. Guardar siempre también en exercise_catalog (funciona de inmediato sin requerir nueva query SQL)
+    const { error: catError } = await supabase.from('exercise_catalog').upsert({
+      id: tplId,
+      name: cleanTitle,
+      muscle_group: '__ROUTINE_TEMPLATE__',
+      equipment: cleanGoal,
+      default_sets: input.days.length,
+      default_reps: `${input.days.length} días`,
+      default_rir: 'RIR 1-2',
+      default_rest_seconds: 90,
+      tips: JSON.stringify({
+        goal: cleanGoal,
+        description: cleanDesc,
+        days: input.days,
+      }),
+      is_custom: true,
+      created_by: user.id,
+    });
+
+    if (dedError && catError) {
+      return {
+        error: `No se pudo guardar la plantilla en la base de datos: ${catError.message}`,
+      };
+    }
+
+    revalidatePath('/admin/workouts');
+    return { success: true, template: newTemplate };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al guardar la plantilla de rutina' };
+  }
+}
+
+/**
+ * Elimina una plantilla de rutina guardada por el administrador
+ */
+export async function deleteWorkoutTemplateAction(templateId: string) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado' };
+    }
+
+    await supabase.from('workout_templates').delete().eq('id', templateId);
+    const { error } = await supabase
+      .from('exercise_catalog')
+      .delete()
+      .eq('id', templateId);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/admin/workouts');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al eliminar la plantilla' };
   }
 }

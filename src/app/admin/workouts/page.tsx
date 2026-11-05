@@ -4,7 +4,7 @@
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { extractPatientIdentity } from '@/domain/entities/patient';
 import { WorkoutPlan, WorkoutLogEntry } from '@/domain/entities/workout';
-import { getExerciseCatalog } from './actions';
+import { getExerciseCatalog, getWorkoutTemplates } from './actions';
 import WorkoutsAdminClient, { PatientWorkoutSummary } from './WorkoutsAdminClient';
 
 export default async function AdminWorkoutsPage({
@@ -90,14 +90,18 @@ export default async function AdminWorkoutsPage({
     };
   });
 
-  // 4. Obtener catálogo de ejercicios desde la base de datos (y sembrar los iniciales si está vacía)
-  const exerciseCatalog = await getExerciseCatalog();
+  // 4. Obtener catálogo de ejercicios y plantillas guardadas desde la base de datos
+  const [exerciseCatalog, savedTemplates] = await Promise.all([
+    getExerciseCatalog(),
+    getWorkoutTemplates(),
+  ]);
 
   return (
     <WorkoutsAdminClient
       patients={patients}
       initialPatientId={initialPatientId}
       initialCatalog={exerciseCatalog}
+      initialTemplates={savedTemplates}
     />
   );
 }

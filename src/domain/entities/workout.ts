@@ -256,6 +256,8 @@ export interface WorkoutTemplate {
   goal: string;
   description: string;
   days: WorkoutDay[];
+  isCustom?: boolean;
+  createdAt?: string;
 }
 
 /**
