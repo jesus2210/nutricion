@@ -292,3 +292,59 @@ CREATE POLICY "Patients can read own storage folder" ON storage.objects
         bucket_id = 'patient-photos' AND
         (storage.foldername(name))[1] = auth.uid()::text
     );
+
+-- 12. TABLA DE RUTINAS DE ENTRENAMIENTO ASIGNADAS (WORKOUT PLANS)
+CREATE TABLE IF NOT EXISTS public.workout_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patient_profiles(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    goal TEXT NOT NULL DEFAULT 'Hipertrofia & Fuerza',
+    days_per_week INT NOT NULL DEFAULT 4,
+    days_config_json JSONB NOT NULL, -- Array de WorkoutDay con ejercicios, series, reps, RIR, biseries y notas
+    notes TEXT,
+    is_current BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_workout_plans_patient ON public.workout_plans(patient_id, is_current);
+
+-- 13. TABLA DE REGISTRO DE SESIONES Y CARGAS DE ENTRENAMIENTO (WORKOUT LOGS)
+CREATE TABLE IF NOT EXISTS public.workout_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL REFERENCES public.patient_profiles(id) ON DELETE CASCADE,
+    workout_plan_id UUID REFERENCES public.workout_plans(id) ON DELETE SET NULL,
+    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    day_id TEXT NOT NULL,
+    day_name TEXT NOT NULL,
+    exercises_logged_json JSONB NOT NULL, -- Array de ejercicios con cada serie (weightKg, reps, rir, completed)
+    duration_minutes INT,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_workout_logs_patient ON public.workout_logs(patient_id, log_date DESC);
+
+ALTER TABLE public.workout_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.workout_logs ENABLE ROW LEVEL SECURITY;
+
+-- Workout Plans Policies:
+DROP POLICY IF EXISTS "Admins full access to workout_plans" ON public.workout_plans;
+DROP POLICY IF EXISTS "Patients can view own workout_plans" ON public.workout_plans;
+CREATE POLICY "Admins full access to workout_plans" ON public.workout_plans
+    FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "Patients can view own workout_plans" ON public.workout_plans
+    FOR SELECT USING (
+        patient_id IN (SELECT id FROM public.patient_profiles WHERE user_id = auth.uid())
+    );
+
+-- Workout Logs Policies:
+DROP POLICY IF EXISTS "Admins full access to workout_logs" ON public.workout_logs;
+DROP POLICY IF EXISTS "Patients can manage own workout_logs" ON public.workout_logs;
+CREATE POLICY "Admins full access to workout_logs" ON public.workout_logs
+    FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+CREATE POLICY "Patients can manage own workout_logs" ON public.workout_logs
+    FOR ALL USING (
+        patient_id IN (SELECT id FROM public.patient_profiles WHERE user_id = auth.uid())
+    ) WITH CHECK (
+        patient_id IN (SELECT id FROM public.patient_profiles WHERE user_id = auth.uid())
+    );

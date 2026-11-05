@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { redirect } from 'next/navigation';
 import { signOutAction } from '../(auth)/actions';
-import { LayoutDashboard, Users, Calculator, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Dumbbell, LogOut } from 'lucide-react';
 
 import AdminMobileNav from './AdminMobileNav';
 
@@ -84,6 +84,14 @@ export default async function AdminLayout({
             >
               <Calculator className="h-4 w-4 text-[#fbbf24]" />
               Calculadora & Planes
+            </Link>
+
+            <Link
+              href="/admin/workouts"
+              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-[#94a3b8] transition hover:bg-[#162229] hover:text-white"
+            >
+              <Dumbbell className="h-4 w-4 text-[#a855f7]" />
+              Rutinas & Entreno
             </Link>
           </nav>
         </div>

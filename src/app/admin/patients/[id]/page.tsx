@@ -2,6 +2,7 @@
 // Expediente Clínico y Ficha Técnica Individual del Paciente
 import { notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
+import { getPatientWorkoutData } from '@/app/admin/workouts/actions';
 import PatientDetailClient from './PatientDetailClient';
 
 export default async function PatientDetailPage({
@@ -65,12 +66,17 @@ export default async function PatientDetailPage({
     .order('log_date', { ascending: false })
     .limit(7);
 
+  // 5. Obtener rutina de entrenamiento activa y registros de cargas
+  const workoutData = await getPatientWorkoutData(id);
+
   return (
     <PatientDetailClient
       patient={patient}
       activePlan={activePlan}
       checkins={checkins || []}
       dailyLogs={dailyLogs || []}
+      workoutPlan={workoutData.activePlan}
+      workoutLogs={workoutData.logs || []}
     />
   );
 }

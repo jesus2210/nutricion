@@ -4,15 +4,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FileText, Activity, Utensils, TrendingUp } from 'lucide-react';
+import { FileText, Activity, Utensils, Dumbbell, TrendingUp } from 'lucide-react';
 
 export default function PortalMobileBottomNav() {
   const pathname = usePathname();
 
   const navItems = [
     { href: '/portal/plan', label: 'Mi Plan', icon: FileText, color: 'text-[#34d399]' },
+    { href: '/portal/workout', label: 'Entreno', icon: Dumbbell, color: 'text-[#f43f5e]' },
+    { href: '/portal/log', label: 'Comidas', icon: Utensils, color: 'text-[#fbbf24]' },
     { href: '/portal/checkin', label: 'Check-in', icon: Activity, color: 'text-[#38bdf8]' },
-    { href: '/portal/log', label: 'Diario', icon: Utensils, color: 'text-[#fbbf24]' },
     { href: '/portal/progress', label: 'Progreso', icon: TrendingUp, color: 'text-[#a855f7]' },
   ];
 

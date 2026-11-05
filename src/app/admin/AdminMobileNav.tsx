@@ -6,7 +6,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calculator, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Calculator, Dumbbell, LogOut, Menu, X } from 'lucide-react';
 
 export default function AdminMobileNav({
   userName,
@@ -24,6 +24,7 @@ export default function AdminMobileNav({
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-[#34d399]' },
     { href: '/admin/patients', label: 'Pacientes', icon: Users, color: 'text-[#38bdf8]' },
     { href: '/admin/calculator', label: 'Calculadora & Planes', icon: Calculator, color: 'text-[#fbbf24]' },
+    { href: '/admin/workouts', label: 'Rutinas & Entreno', icon: Dumbbell, color: 'text-[#a855f7]' },
   ];
 
   return (

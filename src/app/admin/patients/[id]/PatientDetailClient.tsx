@@ -33,15 +33,19 @@ import {
   X,
   Loader2,
   Check,
+  Dumbbell,
 } from 'lucide-react';
 import PhotoGalleryModal, { GalleryPhoto } from '@/components/portal/PhotoGalleryModal';
 import ProgressCharts from '@/components/portal/ProgressCharts';
+import WorkoutSessionTracker from '@/components/portal/WorkoutSessionTracker';
 
 interface PatientDetailClientProps {
   patient: any;
   activePlan: any;
   checkins: any[];
   dailyLogs: any[];
+  workoutPlan?: any;
+  workoutLogs?: any[];
 }
 
 export default function PatientDetailClient({
@@ -49,9 +53,11 @@ export default function PatientDetailClient({
   activePlan,
   checkins,
   dailyLogs,
+  workoutPlan = null,
+  workoutLogs = [],
 }: PatientDetailClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'ficha' | 'plan' | 'checkins'>('ficha');
+  const [activeTab, setActiveTab] = useState<'ficha' | 'plan' | 'checkins' | 'workout'>('ficha');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
@@ -254,6 +260,13 @@ export default function PatientDetailClient({
                 Registrar Check-in
               </button>
               <Link
+                href={`/admin/workouts?patientId=${patient.id}`}
+                className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-950/50 px-3.5 py-2 text-xs font-bold text-purple-200 shadow-sm transition hover:bg-purple-900/60"
+              >
+                <Dumbbell className="h-3.5 w-3.5 text-purple-300" />
+                Rutina de Entreno
+              </Link>
+              <Link
                 href={`/admin/calculator?patientId=${patient.id}`}
                 className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110"
               >
@@ -266,13 +279,14 @@ export default function PatientDetailClient({
       </div>
 
       {/* Tabs de Navegación del Expediente */}
-      <div className="flex gap-2 border-b border-white/10 pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
         <button
           onClick={() => setActiveTab('ficha')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'ficha'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+            activeTab === 'ficha'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-            }`}
+          }`}
         >
           <HeartPulse className="h-4 w-4 text-[#34d399]" />
           1. Ficha Técnica Antropométrica
@@ -280,10 +294,11 @@ export default function PatientDetailClient({
 
         <button
           onClick={() => setActiveTab('plan')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'plan'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+            activeTab === 'plan'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-            }`}
+          }`}
         >
           <FileText className="h-4 w-4 text-[#38bdf8]" />
           2. Plan Nutricional Activo
@@ -291,13 +306,26 @@ export default function PatientDetailClient({
 
         <button
           onClick={() => setActiveTab('checkins')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'checkins'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+            activeTab === 'checkins'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-            }`}
+          }`}
         >
           <Activity className="h-4 w-4 text-[#f59e0b]" />
           3. Evolución & Check-ins ({checkins?.length || 0})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('workout')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+            activeTab === 'workout'
+              ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
+              : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
+          }`}
+        >
+          <Dumbbell className="h-4 w-4 text-[#a855f7]" />
+          4. Entrenamiento & Cargas ({workoutLogs?.length || 0})
         </button>
       </div>
 
@@ -705,6 +733,37 @@ export default function PatientDetailClient({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: ENTRENAMIENTO & CONTROL DE CARGAS */}
+      {activeTab === 'workout' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#111a1f] p-4">
+            <div>
+              <h3 className="font-heading text-sm font-extrabold text-white">
+                Rutina de Entrenamiento & Sobrecarga Progresiva
+              </h3>
+              <p className="text-xs text-[#94a3b8]">
+                Revisa los pesos, repeticiones y RIR registrados por {identity.fullName} o edita su rutina de entrenamiento
+              </p>
+            </div>
+            <Link
+              href={`/admin/workouts?patientId=${patient.id}`}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110"
+            >
+              <Dumbbell className="h-3.5 w-3.5" />
+              {workoutPlan ? 'Editar Rutina de Entreno' : '+ Crear y Asignar Rutina'}
+            </Link>
+          </div>
+
+          <WorkoutSessionTracker
+            patientId={patient.id}
+            patientName={identity.fullName}
+            activePlan={workoutPlan}
+            initialLogs={workoutLogs || []}
+            isAdminView={true}
+          />
         </div>
       )}
 
