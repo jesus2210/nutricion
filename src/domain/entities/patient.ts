@@ -33,3 +33,59 @@ export function calculateAge(birthDate: string): number {
   }
   return age;
 }
+
+export interface PatientIdentityInfo {
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  isManualPatient: boolean;
+  clinicalData: Record<string, any>;
+}
+
+/**
+ * Extrae el nombre, correo, teléfono y metadatos clínicos de un registro patient_profiles,
+ * soportando tanto pacientes con cuenta (profiles) como pacientes registrados manualmente sin cuenta.
+ */
+export function extractPatientIdentity(patientRow: any): PatientIdentityInfo {
+  let clinicalData: Record<string, any> = {};
+  if (patientRow?.allergies_or_notes) {
+    const match = String(patientRow.allergies_or_notes).match(/CLINICAL_JSON:(.+)$/m);
+    if (match && match[1]) {
+      try {
+        clinicalData = JSON.parse(match[1]);
+      } catch {
+        clinicalData = {};
+      }
+    }
+  }
+
+  const profileObj = Array.isArray(patientRow?.profiles)
+    ? patientRow.profiles[0]
+    : patientRow?.profiles;
+
+  const rawFullName =
+    clinicalData.fullName ||
+    profileObj?.full_name ||
+    patientRow?.full_name ||
+    'Paciente';
+
+  const rawEmail = clinicalData.email || profileObj?.email || patientRow?.email || null;
+  const isInternalPlaceholderEmail =
+    !rawEmail ||
+    String(rawEmail).endsWith('@sin-correo.local') ||
+    String(rawEmail) === 'sin-correo@paciente.local';
+
+  const cleanEmail = isInternalPlaceholderEmail ? null : String(rawEmail);
+  const cleanPhone = clinicalData.phone || profileObj?.phone || patientRow?.phone || null;
+  const isManualPatient = Boolean(
+    !patientRow?.user_id || clinicalData.isManualPatient || isInternalPlaceholderEmail
+  );
+
+  return {
+    fullName: rawFullName,
+    email: cleanEmail,
+    phone: cleanPhone,
+    isManualPatient,
+    clinicalData,
+  };
+}

@@ -4,6 +4,8 @@
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
 import { Users, FileText, Activity, TrendingUp, Plus, ArrowRight, Calendar } from 'lucide-react';
+import { extractPatientIdentity } from '@/domain/entities/patient';
+import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
 
 export default async function AdminDashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -42,10 +44,15 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2.5">
+          <RegisterPatientModalButton
+            buttonLabel="+ Registrar Paciente (Sin Cuenta)"
+            variant="emerald"
+            redirectOnCreate={true}
+          />
           <Link
             href="/admin/calculator"
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Crear / Calcular Plan
@@ -109,21 +116,33 @@ export default async function AdminDashboardPage() {
                 No hay pacientes registrados aún.
               </div>
             ) : (
-              patients.slice(0, 5).map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <div className="text-sm font-bold text-white">{p.profiles?.full_name || 'Paciente'}</div>
-                    <div className="text-xs text-[#64748b]">{p.profiles?.email} • {p.initial_weight_kg} kg</div>
+              patients.slice(0, 5).map((p: any) => {
+                const identity = extractPatientIdentity(p);
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">{identity.fullName}</span>
+                        {identity.isManualPatient && (
+                          <span className="rounded-md border border-[#245748] bg-[#14352b]/70 px-1.5 py-0.5 text-[10px] font-semibold text-[#34d399]">
+                            Sin cuenta
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-[#64748b]">
+                        {identity.email || identity.phone || 'Registro directo'} • {p.current_weight_kg || p.initial_weight_kg} kg
+                      </div>
+                    </div>
+                    <Link
+                      href={`/admin/patients/${p.id}`}
+                      className="flex items-center gap-1 text-xs font-semibold text-[#a7f3d0] hover:underline"
+                    >
+                      Ver Ficha
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
                   </div>
-                  <Link
-                    href={`/admin/patients/${p.id}`}
-                    className="flex items-center gap-1 text-xs font-semibold text-[#a7f3d0] hover:underline"
-                  >
-                    Ver Ficha
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -141,12 +160,14 @@ export default async function AdminDashboardPage() {
                 No hay reportes de check-in registrados todavía.
               </div>
             ) : (
-              recentCheckins.map((c: any) => (
-                <div key={c.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      {c.patient_profiles?.profiles?.full_name || 'Paciente'}
-                    </div>
+              recentCheckins.map((c: any) => {
+                const checkinPatientIdentity = extractPatientIdentity(c.patient_profiles);
+                return (
+                  <div key={c.id} className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="text-sm font-bold text-white">
+                        {checkinPatientIdentity.fullName}
+                      </div>
                     <div className="flex items-center gap-2 text-xs text-[#64748b]">
                       <Calendar className="h-3 w-3" />
                       <span>{c.checkin_date}</span>
@@ -161,7 +182,8 @@ export default async function AdminDashboardPage() {
                     Revisar
                   </Link>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

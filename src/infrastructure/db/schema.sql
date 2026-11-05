@@ -12,10 +12,10 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 3. TABLA DE PERFILES DE USUARIO (Vinculada a auth.users de Supabase)
+-- 3. TABLA DE PERFILES DE USUARIO (Soporta tanto usuarios con cuenta en auth.users como pacientes registrados sin cuenta por el admin)
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT,
     role user_role NOT NULL DEFAULT 'patient',
     full_name TEXT NOT NULL,
     phone TEXT,
@@ -24,10 +24,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
+-- Migración en caliente por si la tabla ya existía con restricción estricta a auth.users
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE public.profiles ALTER COLUMN email DROP NOT NULL;
+
 -- 4. TABLA DE EXPEDIENTE DEL PACIENTE
 CREATE TABLE IF NOT EXISTS public.patient_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID UNIQUE NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
     gender TEXT NOT NULL CHECK (gender IN ('male', 'female')),
     birth_date DATE NOT NULL,
     height_cm NUMERIC(5,2) NOT NULL,
@@ -41,6 +46,9 @@ CREATE TABLE IF NOT EXISTS public.patient_profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_patient_profiles_user ON public.patient_profiles(user_id);
+
+-- Permitir que un expediente de paciente exista incluso sin user_id vinculado
+ALTER TABLE public.patient_profiles ALTER COLUMN user_id DROP NOT NULL;
 
 -- 5. TABLA DE PLANES NUTRICIONALES
 CREATE TABLE IF NOT EXISTS public.diet_plans (
@@ -141,10 +149,12 @@ DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
 
+CREATE POLICY "Admins full access to profiles" ON public.profiles
+    FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Allow authenticated read profiles" ON public.profiles
     FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can insert own profile" ON public.profiles
-    FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+    FOR INSERT TO authenticated WITH CHECK (auth.uid() = id OR public.is_admin());
 CREATE POLICY "Users can update own profile" ON public.profiles
     FOR UPDATE TO authenticated USING (auth.uid() = id OR public.is_admin());
 
@@ -155,13 +165,13 @@ DROP POLICY IF EXISTS "Patients can insert own patient_profile" ON public.patien
 DROP POLICY IF EXISTS "Patients can update own patient_profile" ON public.patient_profiles;
 
 CREATE POLICY "Admins full access to patient_profiles" ON public.patient_profiles
-    FOR ALL TO authenticated USING (public.is_admin());
+    FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Patients can view own patient_profile" ON public.patient_profiles
     FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Patients can insert own patient_profile" ON public.patient_profiles
-    FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+    FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR public.is_admin());
 CREATE POLICY "Patients can update own patient_profile" ON public.patient_profiles
-    FOR UPDATE TO authenticated USING (user_id = auth.uid());
+    FOR UPDATE TO authenticated USING (user_id = auth.uid() OR public.is_admin());
 
 -- Trigger automático para crear perfil cuando un usuario se registra en auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -193,13 +203,13 @@ BEGIN
       allergies_or_notes
     ) VALUES (
       NEW.id,
-      (NEW.raw_user_meta_data->>'gender')::gender_type,
+      COALESCE(NEW.raw_user_meta_data->>'gender', 'female'),
       (NEW.raw_user_meta_data->>'birth_date')::date,
       (NEW.raw_user_meta_data->>'height_cm')::numeric,
       (NEW.raw_user_meta_data->>'initial_weight_kg')::numeric,
       (NEW.raw_user_meta_data->>'initial_weight_kg')::numeric,
-      (NEW.raw_user_meta_data->>'target_goal')::goal_type,
-      (NEW.raw_user_meta_data->>'activity_level')::activity_level_type,
+      COALESCE(NEW.raw_user_meta_data->>'target_goal', 'Recomposición'),
+      COALESCE(NEW.raw_user_meta_data->>'activity_level', 'moderate'),
       NEW.raw_user_meta_data->>'allergies_or_notes'
     )
     ON CONFLICT (user_id) DO NOTHING;
@@ -215,6 +225,8 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Diet Plans:
+DROP POLICY IF EXISTS "Admins full access to diet_plans" ON public.diet_plans;
+DROP POLICY IF EXISTS "Patients can view own diet_plans" ON public.diet_plans;
 CREATE POLICY "Admins full access to diet_plans" ON public.diet_plans
     FOR ALL USING (public.is_admin());
 CREATE POLICY "Patients can view own diet_plans" ON public.diet_plans
@@ -223,6 +235,8 @@ CREATE POLICY "Patients can view own diet_plans" ON public.diet_plans
     );
 
 -- Weekly Checkins:
+DROP POLICY IF EXISTS "Admins full access to weekly_checkins" ON public.weekly_checkins;
+DROP POLICY IF EXISTS "Patients can manage own weekly_checkins" ON public.weekly_checkins;
 CREATE POLICY "Admins full access to weekly_checkins" ON public.weekly_checkins
     FOR ALL USING (public.is_admin());
 CREATE POLICY "Patients can manage own weekly_checkins" ON public.weekly_checkins
@@ -231,6 +245,8 @@ CREATE POLICY "Patients can manage own weekly_checkins" ON public.weekly_checkin
     );
 
 -- Checkin Photos:
+DROP POLICY IF EXISTS "Admins full access to checkin_photos" ON public.checkin_photos;
+DROP POLICY IF EXISTS "Patients can manage own checkin_photos" ON public.checkin_photos;
 CREATE POLICY "Admins full access to checkin_photos" ON public.checkin_photos
     FOR ALL USING (public.is_admin());
 CREATE POLICY "Patients can manage own checkin_photos" ON public.checkin_photos
@@ -243,6 +259,8 @@ CREATE POLICY "Patients can manage own checkin_photos" ON public.checkin_photos
     );
 
 -- Daily Logs:
+DROP POLICY IF EXISTS "Admins full access to daily_logs" ON public.daily_logs;
+DROP POLICY IF EXISTS "Patients can manage own daily_logs" ON public.daily_logs;
 CREATE POLICY "Admins full access to daily_logs" ON public.daily_logs
     FOR ALL USING (public.is_admin());
 CREATE POLICY "Patients can manage own daily_logs" ON public.daily_logs
@@ -256,6 +274,10 @@ VALUES ('patient-photos', 'patient-photos', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Políticas de Storage
+DROP POLICY IF EXISTS "Admins full access to storage" ON storage.objects;
+DROP POLICY IF EXISTS "Patients can upload to own storage folder" ON storage.objects;
+DROP POLICY IF EXISTS "Patients can read own storage folder" ON storage.objects;
+
 CREATE POLICY "Admins full access to storage" ON storage.objects
     FOR ALL USING (bucket_id = 'patient-photos' AND public.is_admin());
 

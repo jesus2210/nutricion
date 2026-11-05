@@ -73,6 +73,7 @@ export default function CalculatorClient({
   // Estados del modal de alta rápida de paciente
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientPhone, setNewPatientPhone] = useState('');
   const [newPatientEmail, setNewPatientEmail] = useState('');
   const [newPatientGender, setNewPatientGender] = useState<'male' | 'female'>('female');
   const [newPatientBirthDate, setNewPatientBirthDate] = useState('1998-05-15');
@@ -243,11 +244,11 @@ export default function CalculatorClient({
     }
   }
 
-  // Dar de alta un nuevo paciente directamente desde la calculadora
+  // Dar de alta un nuevo paciente directamente desde la calculadora (sin requerir correo ni login)
   async function handleCreatePatient(e: React.FormEvent) {
     e.preventDefault();
-    if (!newPatientName.trim() || !newPatientEmail.trim()) {
-      setCreatePatientError('Por favor ingresa nombre y correo electrónico');
+    if (!newPatientName.trim()) {
+      setCreatePatientError('Por favor ingresa el nombre del paciente');
       return;
     }
     setIsCreatingPatient(true);
@@ -255,7 +256,8 @@ export default function CalculatorClient({
     try {
       const res = await createPatientByAdminAction({
         fullName: newPatientName.trim(),
-        email: newPatientEmail.trim(),
+        phone: newPatientPhone.trim() || undefined,
+        email: newPatientEmail.trim() || undefined,
         gender: newPatientGender,
         birthDate: newPatientBirthDate,
         heightCm: Number(newPatientHeight),
@@ -274,6 +276,7 @@ export default function CalculatorClient({
         applyPatientData(created);
         setIsModalOpen(false);
         setNewPatientName('');
+        setNewPatientPhone('');
         setNewPatientEmail('');
       } else {
         setCreatePatientError(res?.error || 'Error al registrar paciente');
@@ -1054,12 +1057,26 @@ export default function CalculatorClient({
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-[#94a3b8]">Correo Electrónico *</label>
+                <div>
+                  <label className="block text-xs font-semibold text-[#94a3b8]">
+                    Teléfono / WhatsApp (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. +58 412..."
+                    value={newPatientPhone}
+                    onChange={(e) => setNewPatientPhone(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none focus:border-[#34d399]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#94a3b8]">
+                    Correo (Opcional - Sin cuenta)
+                  </label>
                   <input
                     type="email"
-                    required
-                    placeholder="paciente@correo.com"
+                    placeholder="No es necesario correo"
                     value={newPatientEmail}
                     onChange={(e) => setNewPatientEmail(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-[#162229] px-3 py-2 text-xs text-white focus:outline-none focus:border-[#34d399]"

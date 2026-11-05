@@ -3,7 +3,9 @@
 
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
-import { Users, Search, ChevronRight, Calendar, Activity, Plus } from 'lucide-react';
+import { Users, ChevronRight, Plus } from 'lucide-react';
+import { extractPatientIdentity } from '@/domain/entities/patient';
+import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
 
 export default async function PatientsListPage() {
   const supabase = await createServerSupabaseClient();
@@ -63,21 +65,35 @@ export default async function PatientsListPage() {
           </p>
         </div>
 
-        <Link
-          href="/admin/calculator"
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110"
-        >
-          <Plus className="h-4 w-4" />
-          Crear Nuevo Plan
-        </Link>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <RegisterPatientModalButton
+            buttonLabel="+ Registrar Paciente (Sin Cuenta)"
+            variant="emerald"
+            redirectOnCreate={true}
+          />
+          <Link
+            href="/admin/calculator"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#1b4337] to-[#2d6a4f] px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#1b4337]/40 transition hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            Crear Nuevo Plan
+          </Link>
+        </div>
       </div>
 
       {/* Lista de Pacientes */}
       <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-6 shadow-sm">
         {(!patients || patients.length === 0) ? (
-          <div className="py-12 text-center text-sm text-[#64748b]">
+          <div className="py-12 text-center text-sm text-[#64748b] space-y-3">
             <Users className="mx-auto mb-2 h-8 w-8 text-[#64748b]" />
-            No hay pacientes registrados todavía.
+            <p>No hay pacientes registrados todavía.</p>
+            <div className="flex justify-center pt-1">
+              <RegisterPatientModalButton
+                buttonLabel="+ Registrar Primer Paciente (Sin Cuenta)"
+                variant="emerald"
+                redirectOnCreate={true}
+              />
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -96,12 +112,22 @@ export default async function PatientsListPage() {
                 {patients.map((p: any) => {
                   const birthYear = p.birth_date ? new Date(p.birth_date).getFullYear() : null;
                   const age = birthYear ? new Date().getFullYear() - birthYear : '-';
+                  const identity = extractPatientIdentity(p);
 
                   return (
                     <tr key={p.id} className="transition hover:bg-white/[0.02]">
                       <td className="py-3.5">
-                        <div className="font-bold text-white">{p.profiles?.full_name || 'Paciente'}</div>
-                        <div className="text-[#64748b]">{p.profiles?.email}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white">{identity.fullName}</span>
+                          {identity.isManualPatient && (
+                            <span className="rounded-md border border-[#245748] bg-[#14352b]/70 px-1.5 py-0.5 text-[10px] font-semibold text-[#34d399]">
+                              Sin cuenta
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[#64748b]">
+                          {identity.email || identity.phone || 'Registro directo por nutricionista'}
+                        </div>
                       </td>
                       <td className="py-3.5 text-[#e2e8f0]">
                         {p.gender === 'female' ? 'Mujer' : 'Hombre'} • {age} años

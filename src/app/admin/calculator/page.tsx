@@ -1,6 +1,7 @@
 // LAYER: Interface
 // Página de Servidor: Calculadora y Planes
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
+import { extractPatientIdentity } from '@/domain/entities/patient';
 import CalculatorClient from './CalculatorClient';
 
 export default async function AdminCalculatorPage({
@@ -70,17 +71,8 @@ export default async function AdminCalculatorPage({
 
   const patients = (rawPatients || []).map((p: any) => {
     const checkin = checkinMap.get(p.id);
-
-    // Intentar extraer datos clínicos de onboarding si existen
-    let clinicalData: any = {};
-    if (p.allergies_or_notes) {
-      const match = p.allergies_or_notes.match(/CLINICAL_JSON:(.+)$/m);
-      if (match && match[1]) {
-        try {
-          clinicalData = JSON.parse(match[1]);
-        } catch (e) {}
-      }
-    }
+    const identity = extractPatientIdentity(p);
+    const clinicalData = identity.clinicalData || {};
 
     // El peso actual prioriza: 1. Último check-in -> 2. current_weight_kg -> 3. initial_weight_kg
     const currentWeight = Number(
@@ -94,7 +86,7 @@ export default async function AdminCalculatorPage({
 
     return {
       id: p.id,
-      fullName: p.profiles?.full_name || 'Paciente',
+      fullName: identity.fullName,
       weightKg: currentWeight,
       initialWeightKg: Number(p.initial_weight_kg) || currentWeight,
       gender: p.gender || 'female',

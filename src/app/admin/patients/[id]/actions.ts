@@ -159,7 +159,8 @@ export async function adminSubmitCheckinAction(patientId: string, formData: Form
         const file = formData.get(`photo_${pType}`) as File | null;
         if (file && file.size > 0) {
           const ext = file.type === 'image/webp' ? 'webp' : 'jpg';
-          const path = `${patient.user_id}/${checkinId}_${pType}.${ext}`;
+          const folderKey = patient.user_id || patient.id;
+          const path = `${folderKey}/${checkinId}_${pType}.${ext}`;
 
           const { error: uploadError } = await supabase.storage
             .from('patient-photos')

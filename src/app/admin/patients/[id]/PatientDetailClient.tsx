@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import SlideDeckPreview from '@/components/pdf/SlideDeckPreview';
 import { calculateEnergyExpenditure } from '@/domain/formulas/energy-expenditure';
 import { calculateNavyBodyFat } from '@/domain/formulas/body-composition';
+import { extractPatientIdentity } from '@/domain/entities/patient';
 import { adminSubmitCheckinAction } from './actions';
 import {
   ArrowLeft,
@@ -128,18 +129,9 @@ export default function PatientDetailClient({
     bodyFatPercentage: patient.body_fat_percentage ? Number(patient.body_fat_percentage) : undefined,
   });
 
-  // Intentar extraer datos estructurados de onboarding
-  let clinicalData: any = {};
-  if (patient.allergies_or_notes) {
-    const match = patient.allergies_or_notes.match(/CLINICAL_JSON:(.+)$/m);
-    if (match && match[1]) {
-      try {
-        clinicalData = JSON.parse(match[1]);
-      } catch (e) {
-        // Fallback
-      }
-    }
-  }
+  // Extraer identidad y datos estructurados del paciente (soporta pacientes con cuenta y sin cuenta)
+  const identity = extractPatientIdentity(patient);
+  const clinicalData: any = identity.clinicalData || {};
 
   // Medidas de circunferencias (del onboarding o último check-in)
   const latestCheckin = checkins?.[0];
@@ -212,14 +204,19 @@ export default function PatientDetailClient({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#14352b] text-[#34d399] border border-[#245748] text-xl font-extrabold shadow-md">
-                {(patient.profiles?.full_name || 'P').slice(0, 2).toUpperCase()}
+                {(identity.fullName || 'P').slice(0, 2).toUpperCase()}
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-heading text-2xl font-extrabold text-white">
-                    {patient.profiles?.full_name || 'Paciente'}
+                    {identity.fullName}
                   </h1>
+                  {identity.isManualPatient && (
+                    <span className="rounded-full bg-[#14352b] border border-[#34d399]/40 px-2.5 py-0.5 text-[10px] font-bold text-[#34d399]">
+                      Registro Directo • Sin Cuenta
+                    </span>
+                  )}
                   <span className="rounded-full bg-[#245748]/50 border border-[#245748] px-2.5 py-0.5 text-[10px] font-bold text-[#a7f3d0]">
                     {patient.gender === 'female' ? 'Mujer' : 'Hombre'} • {age} años
                   </span>
@@ -231,12 +228,12 @@ export default function PatientDetailClient({
                 <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#94a3b8]">
                   <span className="flex items-center gap-1">
                     <Mail className="h-3.5 w-3.5 text-[#64748b]" />
-                    {patient.profiles?.email || 'Sin correo'}
+                    {identity.email || 'Sin correo (Presencial / Directo)'}
                   </span>
-                  {patient.profiles?.phone && (
+                  {identity.phone && (
                     <span className="flex items-center gap-1">
                       <Phone className="h-3.5 w-3.5 text-[#64748b]" />
-                      {patient.profiles.phone}
+                      {identity.phone}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
@@ -272,11 +269,10 @@ export default function PatientDetailClient({
       <div className="flex gap-2 border-b border-white/10 pb-2">
         <button
           onClick={() => setActiveTab('ficha')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-            activeTab === 'ficha'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'ficha'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-          }`}
+            }`}
         >
           <HeartPulse className="h-4 w-4 text-[#34d399]" />
           1. Ficha Técnica Antropométrica
@@ -284,11 +280,10 @@ export default function PatientDetailClient({
 
         <button
           onClick={() => setActiveTab('plan')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-            activeTab === 'plan'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'plan'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-          }`}
+            }`}
         >
           <FileText className="h-4 w-4 text-[#38bdf8]" />
           2. Plan Nutricional Activo
@@ -296,11 +291,10 @@ export default function PatientDetailClient({
 
         <button
           onClick={() => setActiveTab('checkins')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-            activeTab === 'checkins'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${activeTab === 'checkins'
               ? 'border border-[#245748] bg-[#14352b] text-white shadow-md'
               : 'text-[#94a3b8] hover:bg-[#162229] hover:text-white'
-          }`}
+            }`}
         >
           <Activity className="h-4 w-4 text-[#f59e0b]" />
           3. Evolución & Check-ins ({checkins?.length || 0})
@@ -322,8 +316,8 @@ export default function PatientDetailClient({
                 {weightDiff === 0
                   ? 'Sin variación'
                   : weightDiff > 0
-                  ? `+${weightDiff.toFixed(1)} kg desde inicio`
-                  : `${weightDiff.toFixed(1)} kg perdidos`}
+                    ? `+${weightDiff.toFixed(1)} kg desde inicio`
+                    : `${weightDiff.toFixed(1)} kg perdidos`}
               </div>
             </div>
 
@@ -548,7 +542,7 @@ export default function PatientDetailClient({
 
               <div className="w-full overflow-hidden">
                 <SlideDeckPreview
-                  patientName={patient.profiles?.full_name || 'Paciente'}
+                  patientName={identity.fullName}
                   weightKg={currentWeight}
                   goal={activePlan.goal}
                   portions={activePlan.portions_json}
@@ -614,8 +608,8 @@ export default function PatientDetailClient({
                         {photo.photoType === 'front'
                           ? 'Frente'
                           : photo.photoType === 'side'
-                          ? 'Perfil'
-                          : 'Espalda'}
+                            ? 'Perfil'
+                            : 'Espalda'}
                       </span>
                       <span className="text-[#94a3b8]">{photo.checkinDate}</span>
                     </div>
@@ -732,7 +726,7 @@ export default function PatientDetailClient({
                   Registrar Check-in Semanal
                 </h3>
                 <p className="text-xs text-[#94a3b8]">
-                  Paciente: <strong className="text-white">{patient.profiles?.full_name || 'Paciente'}</strong>
+                  Paciente: <strong className="text-white">{identity.fullName}</strong>
                 </p>
               </div>
               <button
