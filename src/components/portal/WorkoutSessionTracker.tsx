@@ -10,6 +10,8 @@ import {
   LoggedExercise,
   LoggedSet,
   SET_METHOD_LABELS,
+  formatRestMinutes,
+  getDefaultYoutubeSearchUrl,
 } from '@/domain/entities/workout';
 import { saveWorkoutLogAction } from '@/app/admin/workouts/actions';
 import {
@@ -30,6 +32,9 @@ import {
   ChevronUp,
   Copy,
   Trophy,
+  PlayCircle,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -64,6 +69,18 @@ export default function WorkoutSessionTracker({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(initialLogs?.[0]?.id || null);
+
+  // Temporizador de descanso en vivo cuando el usuario completa una serie
+  const [restTimerSec, setRestTimerSec] = useState<number>(0);
+  const [restTimerExercise, setRestTimerExercise] = useState<string>('');
+
+  useEffect(() => {
+    if (restTimerSec <= 0) return;
+    const timer = setInterval(() => {
+      setRestTimerSec((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [restTimerSec]);
 
   useEffect(() => {
     setLogs(initialLogs || []);
@@ -152,6 +169,9 @@ export default function WorkoutSessionTracker({
   }
 
   function toggleSetCompleted(exIdx: number, setIdx: number) {
+    const routineEx = selectedDay?.exercises?.[exIdx];
+    const wasCompleted = exercisesState[exIdx]?.sets?.[setIdx]?.completed;
+
     setExercisesState((prev) => {
       const next = [...prev];
       const ex = { ...next[exIdx] };
@@ -165,6 +185,11 @@ export default function WorkoutSessionTracker({
       next[exIdx] = ex;
       return next;
     });
+
+    if (!wasCompleted && routineEx) {
+      setRestTimerSec(Number(routineEx.restSeconds) || 90);
+      setRestTimerExercise(routineEx.name);
+    }
   }
 
   function addExtraSet(exIdx: number) {
@@ -429,20 +454,44 @@ export default function WorkoutSessionTracker({
             </div>
           </div>
 
-          {/* Barra de Progreso de la Sesión Actual */}
-          <div className="sticky top-16 z-30 rounded-2xl border border-[#245748] bg-[#111a1f]/95 p-4 shadow-xl backdrop-blur-md">
+          {/* Barra de Progreso de la Sesión Actual + Temporizador de Descanso */}
+          <div className="sticky top-16 z-30 rounded-2xl border border-[#245748] bg-[#111a1f]/95 p-4 shadow-xl backdrop-blur-md space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-[#f59e0b]" />
                 <span className="font-bold text-white">{selectedDay?.name}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {restTimerSec > 0 && (
+                  <div className="flex items-center gap-2 rounded-xl border border-[#38bdf8]/40 bg-[#0f2231] px-3 py-1 text-xs font-extrabold text-[#38bdf8]">
+                    <Clock className="h-3.5 w-3.5 animate-pulse" />
+                    <span>
+                      Descanso: {Math.floor(restTimerSec / 60)}:
+                      {String(restTimerSec % 60).padStart(2, '0')} min
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRestTimerSec((s) => s + 30)}
+                      className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white hover:bg-white/20 cursor-pointer"
+                    >
+                      +30s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRestTimerSec(0)}
+                      className="text-[#94a3b8] hover:text-white cursor-pointer"
+                      title="Cerrar temporizador"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <span className="text-[#a7f3d0] font-semibold">
                   {completedSetsCount} de {totalSetsCount} series marcadas ({progressPct}%)
                 </span>
               </div>
             </div>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full bg-gradient-to-r from-[#34d399] to-[#10b981] transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
@@ -506,11 +555,37 @@ export default function WorkoutSessionTracker({
                             {routineEx.targetRir}
                           </span>
                           <span>•</span>
-                          <span>Descanso: {routineEx.restSeconds}s</span>
+                          <span className="text-[#34d399] font-semibold">
+                            Descanso: {formatRestMinutes(routineEx.restSeconds)}
+                          </span>
                         </div>
+
+                        {routineEx.alternativeExercise && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-sky-300 font-semibold pt-0.5">
+                            <RefreshCw className="h-3 w-3 text-sky-400 shrink-0" />
+                            <span>
+                              Variante / Alternativa: <strong>{routineEx.alternativeExercise}</strong>
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href={
+                            routineEx.videoUrl && routineEx.videoUrl.trim()
+                              ? routineEx.videoUrl.trim()
+                              : getDefaultYoutubeSearchUrl(routineEx.name)
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/50 px-3 py-1.5 text-[11px] font-extrabold text-rose-300 hover:bg-rose-900/60 hover:text-white transition"
+                          title="Ver video explicativo en YouTube"
+                        >
+                          <PlayCircle className="h-3.5 w-3.5 text-rose-400" />
+                          Ver Video
+                        </a>
+
                         <button
                           type="button"
                           onClick={() => copyFirstSetToAll(exIdx)}

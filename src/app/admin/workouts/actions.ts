@@ -10,16 +10,17 @@ import {
   WorkoutPlan,
   WorkoutLogEntry,
   ExerciseCatalogItem,
-  EXERCISE_LIBRARY,
   WORKOUT_TEMPLATES,
   WorkoutTemplate,
   MuscleGroup,
+  TrainingLevel,
 } from '@/domain/entities/workout';
 
 export interface SaveWorkoutPlanInput {
   patientId: string;
   title: string;
   goal: string;
+  level?: TrainingLevel;
   days: WorkoutDay[];
   notes?: string;
 }
@@ -342,6 +343,7 @@ export interface CreateCatalogExerciseInput {
   defaultRir?: string;
   defaultRestSeconds?: number;
   tips?: string;
+  videoUrl?: string;
 }
 
 /**
@@ -358,44 +360,22 @@ export async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
     .order('is_custom', { ascending: false })
     .order('name', { ascending: true });
 
-  // Si la tabla existe y está vacía, sembrar los ejercicios base automáticamente en la BD
-  if (!error && rows && rows.length === 0) {
-    const seedPayload = EXERCISE_LIBRARY.map((item) => ({
-      id: item.id,
-      name: item.name,
-      muscle_group: item.muscleGroup,
-      equipment: item.equipment,
-      default_sets: item.defaultSets,
-      default_reps: item.defaultReps,
-      default_rir: item.defaultRir,
-      default_rest_seconds: item.defaultRestSeconds,
-      tips: item.tips || null,
-      is_custom: false,
-    }));
-
-    const { data: seededRows, error: seedErr } = await supabase
-      .from('exercise_catalog')
-      .upsert(seedPayload, { onConflict: 'id' })
-      .select('*');
-
-    if (!seedErr && seededRows && seededRows.length > 0) {
-      return seededRows.map(mapRowToCatalogItem);
-    }
+  if (!error && rows) {
+    return rows.map(mapRowToCatalogItem);
   }
 
-  if (!error && rows && rows.length > 0) {
-    // Asegurar que estén tanto los de la BD como cualquier ejercicio base nuevo
-    const dbItems = rows.map(mapRowToCatalogItem);
-    const dbIds = new Set(dbItems.map((i) => i.id));
-    const missingBase = EXERCISE_LIBRARY.filter((b) => !dbIds.has(b.id));
-    return [...dbItems, ...missingBase];
-  }
-
-  // Fallback si la tabla aún no fue creada en Supabase SQL Editor
-  return EXERCISE_LIBRARY;
+  return [];
 }
 
 function mapRowToCatalogItem(row: any): ExerciseCatalogItem {
+  let rawTips = String(row.tips || '');
+  let extractedVideoUrl = row.video_url || undefined;
+  const videoMatch = rawTips.match(/VIDEO_URL:(.+)$/m);
+  if (videoMatch && videoMatch[1]) {
+    extractedVideoUrl = videoMatch[1].trim();
+    rawTips = rawTips.replace(/VIDEO_URL:.+$/m, '').trim();
+  }
+
   return {
     id: row.id,
     name: row.name,
@@ -405,7 +385,8 @@ function mapRowToCatalogItem(row: any): ExerciseCatalogItem {
     defaultReps: row.default_reps || '8-12',
     defaultRir: row.default_rir || 'RIR 1-2',
     defaultRestSeconds: Number(row.default_rest_seconds) || 90,
-    tips: row.tips || undefined,
+    tips: rawTips || undefined,
+    videoUrl: extractedVideoUrl,
     isCustom: Boolean(row.is_custom),
   };
 }
@@ -438,6 +419,14 @@ export async function createExerciseInCatalogAction(input: CreateCatalogExercise
 
     const newId = `custom-${slug}-${Date.now().toString(36)}`;
 
+    const cleanTips = input.tips?.trim() || '';
+    const cleanVideo = input.videoUrl?.trim() || '';
+    const combinedTips = cleanVideo
+      ? cleanTips
+        ? `${cleanTips}\nVIDEO_URL:${cleanVideo}`
+        : `VIDEO_URL:${cleanVideo}`
+      : cleanTips || null;
+
     const payload = {
       id: newId,
       name: cleanName,
@@ -447,7 +436,7 @@ export async function createExerciseInCatalogAction(input: CreateCatalogExercise
       default_reps: input.defaultReps?.trim() || '8-12',
       default_rir: input.defaultRir?.trim() || 'RIR 1-2',
       default_rest_seconds: input.defaultRestSeconds || 90,
-      tips: input.tips?.trim() || null,
+      tips: combinedTips,
       is_custom: true,
       created_by: user.id,
     };
@@ -502,6 +491,55 @@ export async function deleteExerciseFromCatalogAction(exerciseId: string) {
     return { success: true };
   } catch (err: any) {
     return { error: err?.message || 'Error al eliminar ejercicio' };
+  }
+}
+
+/**
+ * Guarda o actualiza el link de YouTube predeterminado de un ejercicio en exercise_catalog
+ */
+export async function updateExerciseVideoUrlInCatalogAction(
+  exerciseId: string,
+  videoUrl: string
+) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado' };
+    }
+
+    const { data: existing } = await supabase
+      .from('exercise_catalog')
+      .select('tips')
+      .eq('id', exerciseId)
+      .maybeSingle();
+
+    const rawTips = String(existing?.tips || '')
+      .replace(/VIDEO_URL:.+$/m, '')
+      .trim();
+    const cleanVideo = videoUrl.trim();
+    const updatedTips = cleanVideo
+      ? rawTips
+        ? `${rawTips}\nVIDEO_URL:${cleanVideo}`
+        : `VIDEO_URL:${cleanVideo}`
+      : rawTips || null;
+
+    const { error } = await supabase
+      .from('exercise_catalog')
+      .update({ tips: updatedTips })
+      .eq('id', exerciseId);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/admin/workouts');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al actualizar video del ejercicio' };
   }
 }
 
