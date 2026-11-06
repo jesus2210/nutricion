@@ -376,3 +376,4 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
 
   pdf.save(`Rutina_Entrenamiento_${safeSlug}.pdf`);
 }
+

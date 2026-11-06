@@ -14,6 +14,8 @@ import {
   WorkoutTemplate,
   MuscleGroup,
   TrainingLevel,
+  EXERCISE_SHORT_YOUTUBE_VIDEOS,
+  getDefaultYoutubeSearchUrl,
 } from '@/domain/entities/workout';
 
 export interface SaveWorkoutPlanInput {
@@ -61,6 +63,22 @@ function serializeClinicalJsonToNotes(prefixText: string, clinicalData: Record<s
   return cleanPrefix
     ? `${cleanPrefix}\nCLINICAL_JSON:${JSON.stringify(clinicalData)}`
     : `CLINICAL_JSON:${JSON.stringify(clinicalData)}`;
+}
+
+function enrichWorkoutDaysWithVideos(days: WorkoutDay[]): WorkoutDay[] {
+  if (!Array.isArray(days)) return [];
+  return days.map((day) => ({
+    ...day,
+    exercises: Array.isArray(day.exercises)
+      ? day.exercises.map((ex) => ({
+          ...ex,
+          videoUrl:
+            ex.videoUrl ||
+            EXERCISE_SHORT_YOUTUBE_VIDEOS[ex.exerciseId] ||
+            getDefaultYoutubeSearchUrl(ex.name, ex.exerciseId),
+        }))
+      : [],
+  }));
 }
 
 /**
@@ -141,6 +159,10 @@ export async function getPatientWorkoutData(patientId: string): Promise<{
         logs = clinicalData.workoutLogs;
       }
     }
+  }
+
+  if (activePlan && Array.isArray(activePlan.days)) {
+    activePlan.days = enrichWorkoutDaysWithVideos(activePlan.days);
   }
 
   return { activePlan, logs };
@@ -361,6 +383,28 @@ export async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
     .order('name', { ascending: true });
 
   if (!error && rows) {
+    // Auto-sincronizar en segundo plano los videos cortos en las filas de la BD que aún no tengan VIDEO_URL:
+    const rowsMissingVideo = rows.filter(
+      (r: any) =>
+        !String(r.tips || '').includes('VIDEO_URL:') &&
+        Boolean(EXERCISE_SHORT_YOUTUBE_VIDEOS[r.id])
+    );
+    if (rowsMissingVideo.length > 0) {
+      Promise.allSettled(
+        rowsMissingVideo.map((r: any) => {
+          const shortUrl = EXERCISE_SHORT_YOUTUBE_VIDEOS[r.id];
+          const cleanTips = String(r.tips || '').trim();
+          const newTips = cleanTips
+            ? `${cleanTips}\nVIDEO_URL:${shortUrl}`
+            : `VIDEO_URL:${shortUrl}`;
+          return supabase
+            .from('exercise_catalog')
+            .update({ tips: newTips })
+            .eq('id', r.id);
+        })
+      ).catch(() => {});
+    }
+
     return rows.map(mapRowToCatalogItem);
   }
 
@@ -376,6 +420,11 @@ function mapRowToCatalogItem(row: any): ExerciseCatalogItem {
     rawTips = rawTips.replace(/VIDEO_URL:.+$/m, '').trim();
   }
 
+  const resolvedVideoUrl =
+    extractedVideoUrl ||
+    EXERCISE_SHORT_YOUTUBE_VIDEOS[row.id] ||
+    getDefaultYoutubeSearchUrl(row.name, row.id);
+
   return {
     id: row.id,
     name: row.name,
@@ -386,7 +435,7 @@ function mapRowToCatalogItem(row: any): ExerciseCatalogItem {
     defaultRir: row.default_rir || 'RIR 1-2',
     defaultRestSeconds: Number(row.default_rest_seconds) || 90,
     tips: rawTips || undefined,
-    videoUrl: extractedVideoUrl,
+    videoUrl: resolvedVideoUrl,
     isCustom: Boolean(row.is_custom),
   };
 }
@@ -608,7 +657,12 @@ export async function getWorkoutTemplates(): Promise<WorkoutTemplate[]> {
     }
   }
 
-  return [...customTemplates, ...WORKOUT_TEMPLATES];
+  const enrichedCustom = customTemplates.map((tpl) => ({
+    ...tpl,
+    days: enrichWorkoutDaysWithVideos(tpl.days),
+  }));
+
+  return [...enrichedCustom, ...WORKOUT_TEMPLATES];
 }
 
 /**
