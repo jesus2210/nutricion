@@ -1,10 +1,9 @@
 // LAYER: Interface / PDF Export
-// Generador de PDF Vertical (A4 Portrait) estilo Contreras Nutrición Fit con enlaces clicables a YouTube
+// Generador de PDF Vertical (A4 Portrait) limpio y editorial estilo Contreras Nutrición Fit con enlaces clicables a YouTube
 
 import {
   WorkoutDay,
   TrainingLevel,
-  TRAINING_LEVEL_LABELS,
   SET_METHOD_LABELS,
   formatRestMinutes,
   getDefaultYoutubeSearchUrl,
@@ -18,7 +17,7 @@ export interface GenerateWorkoutPdfInput {
   level?: TrainingLevel;
   days: WorkoutDay[];
   clinicName?: string;
-  autoYoutubeFallback?: boolean; // Si un ejercicio no tiene link manual, enlaza a su guía en YouTube
+  autoYoutubeFallback?: boolean;
 }
 
 async function loadImageAsDataUrl(src: string): Promise<string | null> {
@@ -50,7 +49,7 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
 
   const pageWidth = pdf.internal.pageSize.getWidth(); // ~595 pt
   const pageHeight = pdf.internal.pageSize.getHeight(); // ~842 pt
-  const marginX = 28;
+  const marginX = 32;
   const contentWidth = pageWidth - marginX * 2;
 
   const clinicName = input.clinicName || 'Contreras Nutrición Fit';
@@ -59,312 +58,313 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
     month: 'long',
     year: 'numeric',
   });
-  const levelInfo = TRAINING_LEVEL_LABELS[input.level || 'intermediate'];
 
   const logoDataUrl = await loadImageAsDataUrl('/logo_contreras_transparent.png');
 
   let currentPage = 1;
 
   function drawFooter(pageNum: number) {
-    pdf.setFillColor(15, 39, 32); // #0f2720
-    pdf.rect(0, pageHeight - 28, pageWidth, 28, 'F');
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.setTextColor(167, 243, 208); // #a7f3d0
-    pdf.text(
-      `© ${clinicName} • Planificación de Entrenamiento & Sobrecarga Progresiva`,
-      marginX,
-      pageHeight - 11
-    );
+    pdf.setDrawColor(226, 232, 240); // #e2e8f0
+    pdf.setLineWidth(0.75);
+    pdf.line(marginX, pageHeight - 32, pageWidth - marginX, pageHeight - 32);
 
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Página ${pageNum}`, pageWidth - marginX, pageHeight - 11, {
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(100, 116, 139); // #64748b
+    pdf.text(
+      `${clinicName}  ·  Plan de Entrenamiento Personalizado`,
+      marginX,
+      pageHeight - 17
+    );
+    pdf.text(`Página ${pageNum}`, pageWidth - marginX, pageHeight - 17, {
+      align: 'right',
+    });
+  }
+
+  function drawContinuationHeader() {
+    pdf.setFillColor(15, 39, 32); // #0f2720
+    pdf.rect(0, 0, pageWidth, 34, 'F');
+    pdf.setFillColor(52, 211, 153); // #34d399
+    pdf.rect(0, 34, pageWidth, 2, 'F');
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(167, 243, 208);
+    pdf.text(clinicName.toUpperCase(), marginX, 21);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(`Paciente: ${input.patientName}`, pageWidth - marginX, 21, {
       align: 'right',
     });
   }
 
   // ==================== ENCABEZADO OFICIAL ESTILO CONTRERAS NUTRICIÓN FIT ====================
-  // Fondo Verde Bosque Oscuro
   pdf.setFillColor(15, 39, 32); // #0f2720
-  pdf.rect(0, 0, pageWidth, 122, 'F');
+  pdf.rect(0, 0, pageWidth, 88, 'F');
 
-  // Franja decorativa esmeralda
+  // Franja decorativa esmeralda sutil
   pdf.setFillColor(52, 211, 153); // #34d399
-  pdf.rect(0, 119, pageWidth, 3, 'F');
+  pdf.rect(0, 86, pageWidth, 2.5, 'F');
 
-  // Logo si está disponible
   let headerTextX = marginX;
   if (logoDataUrl) {
     try {
-      pdf.addImage(logoDataUrl, 'PNG', marginX, 14, 86, 86);
-      headerTextX = marginX + 98;
+      pdf.addImage(logoDataUrl, 'PNG', marginX, 14, 58, 58);
+      headerTextX = marginX + 70;
     } catch {
       headerTextX = marginX;
     }
   }
 
-  // Marca y Título Principal
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9);
-  pdf.setTextColor(52, 211, 153); // #34d399
-  pdf.text(clinicName.toUpperCase(), headerTextX, 28);
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(17);
-  pdf.setTextColor(255, 255, 255);
-  const cleanTitle = input.routineTitle || 'Plan de Entrenamiento Personalizado';
-  pdf.text(cleanTitle.slice(0, 48), headerTextX, 49);
-
-  // Tarjeta de Datos del Paciente dentro del Header
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9.5);
-  pdf.setTextColor(209, 250, 229);
-  const weightTag = input.weightKg ? ` (${input.weightKg} kg)` : '';
-  pdf.text(`Paciente: ${input.patientName}${weightTag}`, headerTextX, 68);
-  pdf.text(`Objetivo: ${input.routineGoal}`, headerTextX, 83);
-
-  // Píldoras de Nivel, Frecuencia y Fecha
-  pdf.setFillColor(27, 67, 55); // #1b4337
-  pdf.roundedRect(headerTextX, 91, 145, 18, 4, 4, 'F');
+  // Marca
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(8);
-  pdf.setTextColor(167, 243, 208);
-  pdf.text(`❖ Nivel: ${levelInfo.shortLabel.toUpperCase()}`, headerTextX + 8, 103);
+  pdf.setTextColor(52, 211, 153); // #34d399
+  pdf.text(clinicName.toUpperCase(), headerTextX, 29);
 
-  pdf.setFillColor(27, 67, 55);
-  pdf.roundedRect(headerTextX + 152, 91, 118, 18, 4, 4, 'F');
-  pdf.text(`❖ Frecuencia: ${input.days.length} Días/Sem`, headerTextX + 160, 103);
+  // Título limpio de la rutina
+  const rawTitle = (input.routineTitle || 'Plan de Entrenamiento').split('•')[0].trim();
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(16.5);
+  pdf.setTextColor(255, 255, 255);
+  pdf.text(rawTitle.slice(0, 42), headerTextX, 50);
 
+  // Datos del cliente: SOLO el nombre
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.setTextColor(226, 248, 238);
+  pdf.text(`Paciente: ${input.patientName}`, headerTextX, 68);
+
+  // Fecha discreta arriba a la derecha
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
   pdf.setTextColor(148, 163, 184);
-  pdf.text(dateStr, pageWidth - marginX, 28, { align: 'right' });
+  pdf.text(dateStr, pageWidth - marginX, 29, { align: 'right' });
 
-  let cursorY = 136;
+  // Píldora limpia de frecuencia abajo a la derecha
+  pdf.setFillColor(27, 67, 55); // #1b4337
+  pdf.roundedRect(pageWidth - marginX - 96, 53, 96, 18, 9, 9, 'F');
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.8);
+  pdf.setTextColor(167, 243, 208);
+  pdf.text(
+    `${input.days.length} ${input.days.length === 1 ? 'Día / Semana' : 'Días / Semana'}`,
+    pageWidth - marginX - 48,
+    65,
+    { align: 'center' }
+  );
 
-  // ==================== REGLAS DE ORO DE PROGRESIÓN Y RIR ====================
-  pdf.setFillColor(240, 253, 244); // #f0fdf4
-  pdf.setDrawColor(187, 247, 208); // #bbf7d0
-  pdf.roundedRect(marginX, cursorY, contentWidth, 52, 6, 6, 'FD');
+  let cursorY = 108;
+
+  // ==================== GUÍA BREVE DE PROGRESIÓN Y RIR ====================
+  pdf.setFillColor(248, 250, 252); // #f8fafc
+  pdf.setDrawColor(226, 232, 240); // #e2e8f0
+  pdf.setLineWidth(0.75);
+  pdf.roundedRect(marginX, cursorY, contentWidth, 38, 6, 6, 'FD');
+
+  // Acento lateral verde bosque
+  pdf.setFillColor(27, 67, 55); // #1b4337
+  pdf.roundedRect(marginX, cursorY, 4, 38, 2, 2, 'F');
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(20, 83, 45); // #14532d
-  pdf.text(
-    '❖ PAUTAS DE SOBRECARGA PROGRESIVA & SIGNIFICADO DEL RIR:',
-    marginX + 10,
-    cursorY + 15
-  );
+  pdf.setFontSize(8);
+  pdf.setTextColor(15, 39, 32);
+  pdf.text('GUÍA RÁPIDA DE EJECUCIÓN Y RIR', marginX + 14, cursorY + 14);
 
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.8);
-  pdf.setTextColor(22, 101, 52);
+  pdf.setFontSize(7.6);
+  pdf.setTextColor(71, 85, 105); // #475569
   pdf.text(
-    '• RIR (Repeticiones en Recámara): RIR 2 = podrías hacer 2 reps más antes del fallo | RIR 1 = a 1 rep del fallo | RIR 0 = fallo técnico.',
-    marginX + 10,
-    cursorY + 29
-  );
-  pdf.text(
-    '• Cuando logres el tope de repeticiones pautadas en todas tus series con buena técnica, sube entre 1.25 kg y 2.5 kg la siguiente semana.',
-    marginX + 10,
-    cursorY + 41
+    'RIR = repeticiones que te quedan antes del fallo (ej. RIR 1-2 = termina sintiendo que podías hacer 1 o 2 más). Sube 1.25–2.5 kg al completar el rango.',
+    marginX + 14,
+    cursorY + 27
   );
 
-  cursorY += 64;
+  cursorY += 54;
 
-  // ==================== ITERAR CADA DÍA DE ENTRENAMIENTO ====================
+  // ==================== DÍAS DE ENTRENAMIENTO ====================
   for (let dIdx = 0; dIdx < input.days.length; dIdx++) {
     const day = input.days[dIdx];
     const totalDaySets = day.exercises.reduce((acc, e) => acc + (Number(e.targetSets) || 0), 0);
 
-    // Verificar si cabe la cabecera del día + al menos 1 ejercicio en la página actual
-    if (cursorY + 95 > pageHeight - 40) {
+    // Verificar espacio para cabecera del día + encabezados de tabla + al menos 1 fila
+    if (cursorY + 92 > pageHeight - 44) {
       drawFooter(currentPage);
       pdf.addPage('a4', 'portrait');
       currentPage += 1;
-      cursorY = 30;
+      drawContinuationHeader();
+      cursorY = 54;
     }
 
-    // Cabecera del Día (Verde Bosque #1b4337)
+    // Cabecera elegante del Día
     pdf.setFillColor(27, 67, 55); // #1b4337
-    pdf.roundedRect(marginX, cursorY, contentWidth, 28, 5, 5, 'F');
+    pdf.roundedRect(marginX, cursorY, contentWidth, 26, 5, 5, 'F');
 
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10.5);
+    pdf.setFontSize(10);
     pdf.setTextColor(255, 255, 255);
-    pdf.text(day.name.toUpperCase(), marginX + 10, cursorY + 13);
+    pdf.text(day.name.toUpperCase(), marginX + 12, cursorY + 16.5);
 
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(167, 243, 208);
     pdf.text(
-      `Enfoque: ${day.focus || 'General'}  •  ${day.exercises.length} ejercicios (${totalDaySets} series efectivas)`,
-      marginX + 10,
-      cursorY + 23
+      `${day.exercises.length} ejercicios  ·  ${totalDaySets} series`,
+      pageWidth - marginX - 12,
+      cursorY + 16.5,
+      { align: 'right' }
     );
 
     cursorY += 32;
 
-    // Cabecera de Columnas de la Tabla del Día
-    pdf.setFillColor(241, 245, 249); // #f1f5f9
-    pdf.rect(marginX, cursorY, contentWidth, 18, 'F');
+    // Columnas limpias con línea inferior sutil
+    const colOrdX = marginX + 4;
+    const colExX = marginX + 30;
+    const colSetsX = marginX + 292;
+    const colRirX = marginX + 362;
+    const colRestX = marginX + 422;
+    const colVideoX = pageWidth - marginX - 56;
 
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(51, 65, 85); // #334155
+    pdf.setFontSize(7.2);
+    pdf.setTextColor(100, 116, 139); // #64748b
+    pdf.text('#', colOrdX + 6, cursorY + 8);
+    pdf.text('EJERCICIO', colExX, cursorY + 8);
+    pdf.text('SERIES × REPS', colSetsX, cursorY + 8);
+    pdf.text('RIR', colRirX, cursorY + 8);
+    pdf.text('DESCANSO', colRestX, cursorY + 8);
+    pdf.text('VIDEO', colVideoX + 28, cursorY + 8, { align: 'center' });
 
-    const colOrdX = marginX + 6;
-    const colExX = marginX + 34;
-    const colSetsX = marginX + 290;
-    const colRirX = marginX + 360;
-    const colRestX = marginX + 425;
-    const colVideoX = marginX + 478;
+    pdf.setDrawColor(203, 213, 225); // #cbd5e1
+    pdf.setLineWidth(0.75);
+    pdf.line(marginX, cursorY + 13, pageWidth - marginX, cursorY + 13);
 
-    pdf.text('#', colOrdX, cursorY + 12);
-    pdf.text('EJERCICIO / PAUTA TÉCNICA & VARIANTES', colExX, cursorY + 12);
-    pdf.text('SERIES × REPS', colSetsX, cursorY + 12);
-    pdf.text('RIR / MÉTODO', colRirX, cursorY + 12);
-    pdf.text('DESCANSO', colRestX, cursorY + 12);
-    pdf.text('VIDEO GUÍA', colVideoX, cursorY + 12);
+    cursorY += 15;
 
-    cursorY += 20;
-
-    // Filas de Ejercicios
+    // Filas de Ejercicios (estilo limpio editorial sin cajas pesadas)
     for (let eIdx = 0; eIdx < day.exercises.length; eIdx++) {
       const ex = day.exercises[eIdx];
+      const hasNotes = Boolean(ex.coachNotes && ex.coachNotes.trim());
+      const showMethodSub = ex.setMethod && ex.setMethod !== 'normal';
+      const rowHeight = hasNotes ? 40 : 31;
 
-      // Calcular altura dinámica de la fila según si tiene notas o variante alternativa
-      let extraLines = 0;
-      if (ex.alternativeExercise && ex.alternativeExercise.trim()) extraLines += 1;
-      if (ex.coachNotes && ex.coachNotes.trim()) extraLines += 1;
-      const rowHeight = 28 + extraLines * 11;
-
-      if (cursorY + rowHeight > pageHeight - 38) {
+      if (cursorY + rowHeight > pageHeight - 42) {
         drawFooter(currentPage);
         pdf.addPage('a4', 'portrait');
         currentPage += 1;
-        cursorY = 30;
+        drawContinuationHeader();
+        cursorY = 54;
       }
 
-      // Fondo alternado de la fila
-      if (eIdx % 2 === 0) {
-        pdf.setFillColor(255, 255, 255);
-      } else {
-        pdf.setFillColor(248, 250, 252); // #f8fafc
+      // Fondo muy sutil en filas impares
+      if (eIdx % 2 === 1) {
+        pdf.setFillColor(249, 250, 251); // #f9fafb
+        pdf.rect(marginX, cursorY, contentWidth, rowHeight, 'F');
       }
+
+      // Línea divisoria inferior fina
       pdf.setDrawColor(226, 232, 240); // #e2e8f0
-      pdf.rect(marginX, cursorY, contentWidth, rowHeight, 'FD');
+      pdf.setLineWidth(0.5);
+      pdf.line(marginX, cursorY + rowHeight, pageWidth - marginX, cursorY + rowHeight);
 
-      // 1. Número de Orden o Etiqueta de Biserie
+      // 1. Número de Orden o Biserie
       const orderTag = ex.supersetGroup ? `${ex.supersetGroup}${eIdx + 1}` : `${eIdx + 1}`;
       if (ex.supersetGroup) {
-        pdf.setFillColor(243, 232, 255); // morado suave para biseries
-        pdf.roundedRect(colOrdX - 2, cursorY + 6, 22, 15, 3, 3, 'F');
+        pdf.setFillColor(243, 232, 255);
+        pdf.roundedRect(colOrdX, cursorY + 7, 20, 16, 4, 4, 'F');
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8);
+        pdf.setFontSize(7.8);
         pdf.setTextColor(107, 33, 168);
-        pdf.text(orderTag, colOrdX + 9, cursorY + 16, { align: 'center' });
+        pdf.text(orderTag, colOrdX + 10, cursorY + 17.5, { align: 'center' });
       } else {
-        pdf.setFillColor(209, 250, 229); // #d1fae5
-        pdf.roundedRect(colOrdX - 2, cursorY + 6, 20, 15, 3, 3, 'F');
+        pdf.setFillColor(236, 253, 245); // #ecfdf5
+        pdf.roundedRect(colOrdX, cursorY + 7, 20, 16, 4, 4, 'F');
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8);
+        pdf.setFontSize(7.8);
         pdf.setTextColor(6, 95, 70);
-        pdf.text(orderTag, colOrdX + 8, cursorY + 16, { align: 'center' });
+        pdf.text(orderTag, colOrdX + 10, cursorY + 17.5, { align: 'center' });
       }
 
-      // 2. Nombre del Ejercicio, Grupo Muscular y Equipo
+      // 2. Nombre del Ejercicio + Grupo Muscular
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
+      pdf.setFontSize(9.2);
       pdf.setTextColor(15, 23, 42); // #0f172a
       const biseriePrefix = ex.supersetGroup ? `[Biserie ${ex.supersetGroup}] ` : '';
       const displayExName = `${biseriePrefix}${ex.name}`.slice(0, 48);
-      pdf.text(displayExName, colExX, cursorY + 13);
+      pdf.text(displayExName, colExX, cursorY + 13.5);
 
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7.5);
+      pdf.setFontSize(7.4);
       pdf.setTextColor(100, 116, 139); // #64748b
-      pdf.text(`${ex.muscleGroup} • ${ex.equipment}`, colExX, cursorY + 23);
+      pdf.text(`${ex.muscleGroup}  ·  ${ex.equipment}`, colExX, cursorY + 23.5);
 
-      let subLineY = cursorY + 33;
-      if (ex.alternativeExercise && ex.alternativeExercise.trim()) {
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7.2);
-        pdf.setTextColor(3, 105, 161); // #0369a1
-        pdf.text(
-          `Variante / Alternativa: ${ex.alternativeExercise.trim().slice(0, 58)}`,
-          colExX,
-          subLineY
-        );
-        subLineY += 11;
-      }
-
-      if (ex.coachNotes && ex.coachNotes.trim()) {
+      if (hasNotes) {
         pdf.setFont('helvetica', 'italic');
-        pdf.setFontSize(7.2);
+        pdf.setFontSize(7.1);
         pdf.setTextColor(71, 85, 105);
-        pdf.text(`Nota: ${ex.coachNotes.trim().slice(0, 65)}`, colExX, subLineY);
+        pdf.text(`Nota: ${ex.coachNotes!.trim().slice(0, 68)}`, colExX, cursorY + 34);
       }
 
-      // 3. Series x Repeticiones
+      // 3. Series × Repeticiones
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
+      pdf.setFontSize(9.2);
       pdf.setTextColor(15, 39, 32);
-      pdf.text(`${ex.targetSets} × ${ex.targetReps}`, colSetsX, cursorY + 16);
+      pdf.text(`${ex.targetSets} × ${ex.targetReps}`, colSetsX, cursorY + 17.5);
 
-      // 4. RIR y Método de Intensidad
+      // 4. RIR (y método solo si es técnica especial)
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8.2);
-      pdf.setTextColor(180, 83, 9); // Ámbar oscuro legible
-      pdf.text(ex.targetRir || 'RIR 1-2', colRirX, cursorY + 13);
+      pdf.setTextColor(51, 65, 85);
+      pdf.text(ex.targetRir || 'RIR 1-2', colRirX, showMethodSub ? cursorY + 13.5 : cursorY + 17.5);
 
-      const methodLabel =
-        SET_METHOD_LABELS[ex.setMethod || 'normal']?.label || 'Serie Efectiva';
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(methodLabel.slice(0, 16), colRirX, cursorY + 23);
+      if (showMethodSub) {
+        const methodLabel = SET_METHOD_LABELS[ex.setMethod]?.label || '';
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6.8);
+        pdf.setTextColor(180, 83, 9);
+        pdf.text(methodLabel.slice(0, 16), colRirX, cursorY + 23.5);
+      }
 
       // 5. Descanso en Minutos
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8.5);
-      pdf.setTextColor(15, 118, 110); // Teal
-      pdf.text(formatRestMinutes(ex.restSeconds), colRestX, cursorY + 16);
+      pdf.setFontSize(8.4);
+      pdf.setTextColor(15, 118, 110);
+      pdf.text(formatRestMinutes(ex.restSeconds), colRestX, cursorY + 17.5);
 
-      // 6. Botón Clicable de Video en YouTube
+      // 6. Enlace elegante tipo píldora minimalista para Video en YouTube
       const targetVideoUrl =
         ex.videoUrl && ex.videoUrl.trim()
           ? ex.videoUrl.trim()
           : input.autoYoutubeFallback !== false
-          ? getDefaultYoutubeSearchUrl(ex.name)
+          ? getDefaultYoutubeSearchUrl(ex.name, ex.exerciseId)
           : '';
 
       if (targetVideoUrl) {
-        const btnW = 54;
+        const btnW = 56;
         const btnH = 16;
         const btnX = colVideoX;
-        const btnY = cursorY + 6;
+        const btnY = cursorY + 7.5;
 
-        // Fondo del botón estilo YouTube / Contreras Fit
-        pdf.setFillColor(220, 38, 38); // Rojo YouTube #dc2626
-        pdf.roundedRect(btnX, btnY, btnW, btnH, 3, 3, 'F');
+        pdf.setFillColor(236, 253, 245); // #ecfdf5
+        pdf.setDrawColor(167, 243, 208); // #a7f3d0
+        pdf.setLineWidth(0.75);
+        pdf.roundedRect(btnX, btnY, btnW, btnH, 8, 8, 'FD');
 
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7);
-        pdf.setTextColor(255, 255, 255);
-        pdf.text('▶ VER VIDEO', btnX + btnW / 2, btnY + 10.5, { align: 'center' });
+        pdf.setFontSize(7.2);
+        pdf.setTextColor(6, 95, 70); // #065f46
+        pdf.text('▶ Ver video', btnX + btnW / 2, btnY + 10.5, { align: 'center' });
 
-        // Anotación interactiva clicable en el PDF (redirige directo al hacer clic)
         pdf.link(btnX, btnY, btnW, btnH, { url: targetVideoUrl });
-        // También hacer clicable el título del ejercicio
-        pdf.link(colExX, cursorY + 3, 240, 16, { url: targetVideoUrl });
+        pdf.link(colExX, cursorY + 4, 245, 15, { url: targetVideoUrl });
       }
 
       cursorY += rowHeight;
     }
 
-    cursorY += 16;
+    cursorY += 18;
   }
 
   drawFooter(currentPage);
@@ -376,4 +376,3 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
 
   pdf.save(`Rutina_Entrenamiento_${safeSlug}.pdf`);
 }
-

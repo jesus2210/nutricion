@@ -65,18 +65,25 @@ function serializeClinicalJsonToNotes(prefixText: string, clinicalData: Record<s
     : `CLINICAL_JSON:${JSON.stringify(clinicalData)}`;
 }
 
-function enrichWorkoutDaysWithVideos(days: WorkoutDay[]): WorkoutDay[] {
+function enrichWorkoutDaysWithVideos(
+  days: WorkoutDay[],
+  catalogVideoMap?: Map<string, string>
+): WorkoutDay[] {
   if (!Array.isArray(days)) return [];
   return days.map((day) => ({
     ...day,
     exercises: Array.isArray(day.exercises)
-      ? day.exercises.map((ex) => ({
-          ...ex,
-          videoUrl:
-            ex.videoUrl ||
-            EXERCISE_SHORT_YOUTUBE_VIDEOS[ex.exerciseId] ||
-            getDefaultYoutubeSearchUrl(ex.name, ex.exerciseId),
-        }))
+      ? day.exercises.map((ex) => {
+          const dbCatalogUrl = catalogVideoMap?.get(ex.exerciseId);
+          return {
+            ...ex,
+            videoUrl:
+              dbCatalogUrl ||
+              ex.videoUrl ||
+              EXERCISE_SHORT_YOUTUBE_VIDEOS[ex.exerciseId] ||
+              getDefaultYoutubeSearchUrl(ex.name, ex.exerciseId),
+          };
+        })
       : [],
   }));
 }
@@ -548,7 +555,8 @@ export async function deleteExerciseFromCatalogAction(exerciseId: string) {
  */
 export async function updateExerciseVideoUrlInCatalogAction(
   exerciseId: string,
-  videoUrl: string
+  videoUrl: string,
+  exerciseName?: string
 ) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -560,13 +568,34 @@ export async function updateExerciseVideoUrlInCatalogAction(
       return { error: 'No autorizado' };
     }
 
-    const { data: existing } = await supabase
+    // Buscar primero por id; si no existe, intentar por nombre exacto (case-insensitive)
+    let targetId = exerciseId;
+    let { data: existing } = await supabase
       .from('exercise_catalog')
-      .select('tips')
+      .select('id, tips')
       .eq('id', exerciseId)
       .maybeSingle();
 
-    const rawTips = String(existing?.tips || '')
+    if (!existing && exerciseName) {
+      const { data: byName } = await supabase
+        .from('exercise_catalog')
+        .select('id, tips')
+        .ilike('name', exerciseName.trim())
+        .limit(1)
+        .maybeSingle();
+      if (byName) {
+        existing = byName;
+        targetId = byName.id;
+      }
+    }
+
+    if (!existing) {
+      return {
+        error: `No se encontró el ejercicio "${exerciseName || exerciseId}" en public.exercise_catalog.`,
+      };
+    }
+
+    const rawTips = String(existing.tips || '')
       .replace(/VIDEO_URL:.+$/m, '')
       .trim();
     const cleanVideo = videoUrl.trim();
@@ -576,17 +605,25 @@ export async function updateExerciseVideoUrlInCatalogAction(
         : `VIDEO_URL:${cleanVideo}`
       : rawTips || null;
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('exercise_catalog')
       .update({ tips: updatedTips })
-      .eq('id', exerciseId);
+      .eq('id', targetId)
+      .select('id');
 
     if (error) {
       return { error: error.message };
     }
 
+    if (!updatedRows || updatedRows.length === 0) {
+      return {
+        error:
+          'No se pudo actualizar el video en la BD (verifica permisos RLS de actualización en exercise_catalog).',
+      };
+    }
+
     revalidatePath('/admin/workouts');
-    return { success: true };
+    return { success: true, exerciseId: targetId, videoUrl: cleanVideo };
   } catch (err: any) {
     return { error: err?.message || 'Error al actualizar video del ejercicio' };
   }
@@ -657,12 +694,26 @@ export async function getWorkoutTemplates(): Promise<WorkoutTemplate[]> {
     }
   }
 
+  // 3. Sincronizar los videos de las plantillas con los links actualizados en exercise_catalog (BD)
+  const catalogItems = await getExerciseCatalog();
+  const catalogVideoMap = new Map<string, string>();
+  for (const item of catalogItems) {
+    if (item.videoUrl) {
+      catalogVideoMap.set(item.id, item.videoUrl);
+    }
+  }
+
   const enrichedCustom = customTemplates.map((tpl) => ({
     ...tpl,
-    days: enrichWorkoutDaysWithVideos(tpl.days),
+    days: enrichWorkoutDaysWithVideos(tpl.days, catalogVideoMap),
   }));
 
-  return [...enrichedCustom, ...WORKOUT_TEMPLATES];
+  const enrichedBuiltIn = WORKOUT_TEMPLATES.map((tpl) => ({
+    ...tpl,
+    days: enrichWorkoutDaysWithVideos(tpl.days, catalogVideoMap),
+  }));
+
+  return [...enrichedCustom, ...enrichedBuiltIn];
 }
 
 /**

@@ -106,8 +106,28 @@ export default function WorkoutsAdminClient({
   const [activeTab, setActiveTab] = useState<'builder' | 'tracker'>('builder');
 
   // Estado del constructor de rutina
-  const defaultTemplate = WORKOUT_TEMPLATES[1] || WORKOUT_TEMPLATES[0];
+  const defaultTemplate = templatesList[1] || templatesList[0] || WORKOUT_TEMPLATES[1] || WORKOUT_TEMPLATES[0];
   const initialPlan = selectedPatient?.activePlan;
+
+  function syncDaysWithCatalogVideos(days: WorkoutDay[], catalog: ExerciseCatalogItem[]): WorkoutDay[] {
+    if (!Array.isArray(days) || catalog.length === 0) return days;
+    const byId = new Map<string, string>();
+    const byName = new Map<string, string>();
+    for (const item of catalog) {
+      if (item.videoUrl) {
+        byId.set(item.id, item.videoUrl);
+        byName.set(item.name.toLowerCase().trim(), item.videoUrl);
+      }
+    }
+    return days.map((day) => ({
+      ...day,
+      exercises: (day.exercises || []).map((ex) => {
+        const freshUrl =
+          byId.get(ex.exerciseId) || byName.get(ex.name.toLowerCase().trim());
+        return freshUrl ? { ...ex, videoUrl: freshUrl } : ex;
+      }),
+    }));
+  }
 
   const [routineTitle, setRoutineTitle] = useState<string>(
     initialPlan?.title ||
@@ -208,7 +228,7 @@ export default function WorkoutsAdminClient({
       setRoutineTitle(`Rutina de Entrenamiento • ${pat.fullName}`);
       setRoutineGoal(pat.targetGoal || 'Hipertrofia & Recomposición');
       setRoutineLevel('intermediate');
-      setRoutineDays(structuredClone(defaultTemplate.days));
+      setRoutineDays(syncDaysWithCatalogVideos(structuredClone(defaultTemplate.days), catalogList));
       setActiveDayIdx(0);
     }
     setSaveSuccess(false);
@@ -225,7 +245,7 @@ export default function WorkoutsAdminClient({
     );
     setRoutineGoal(tpl.goal);
     if (tpl.level) setRoutineLevel(tpl.level);
-    setRoutineDays(structuredClone(tpl.days));
+    setRoutineDays(syncDaysWithCatalogVideos(structuredClone(tpl.days), catalogList));
     setActiveDayIdx(0);
     setTemplateSuccessMsg(
       `✓ Plantilla "${cleanBaseTitle}" cargada en el constructor. Pulsa "Guardar y Asignar" para asignársela a ${selectedPatient?.fullName || 'este paciente'}.`
@@ -247,7 +267,7 @@ export default function WorkoutsAdminClient({
     );
     setRoutineGoal(sourcePat.activePlan.goal);
     if (sourcePat.activePlan.level) setRoutineLevel(sourcePat.activePlan.level);
-    setRoutineDays(structuredClone(sourcePat.activePlan.days));
+    setRoutineDays(syncDaysWithCatalogVideos(structuredClone(sourcePat.activePlan.days), catalogList));
     setActiveDayIdx(0);
     setTemplateSuccessMsg(
       `✓ Se copió la rutina completa de ${sourcePat.fullName} (${sourcePat.activePlan.days.length} días).`
@@ -263,14 +283,15 @@ export default function WorkoutsAdminClient({
       selectedImportSource.days[0];
     if (!sourceDay) return;
 
+    const [syncedDay] = syncDaysWithCatalogVideos([structuredClone(sourceDay)], catalogList);
     const clonedDay: WorkoutDay = {
-      ...structuredClone(sourceDay),
+      ...syncedDay,
       id: `day-${Date.now()}`,
       name:
         mode === 'append'
           ? `Día ${routineDays.length + 1} • ${sourceDay.name.replace(/^Día\s*\d+\s*•?\s*/i, '')}`
           : sourceDay.name,
-      exercises: sourceDay.exercises.map((ex) => ({
+      exercises: syncedDay.exercises.map((ex) => ({
         ...ex,
         id: `ex-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       })),
@@ -500,17 +521,52 @@ export default function WorkoutsAdminClient({
   // Guardar el link de YouTube de un ejercicio directamente en el catálogo de la BD para futuras rutinas
   async function handleSaveExerciseVideoToCatalog(exerciseId: string, videoUrl: string, exName: string) {
     if (!exerciseId) return;
-    const res = await updateExerciseVideoUrlInCatalogAction(exerciseId, videoUrl);
+    setSaveError(null);
+    const cleanUrl = videoUrl.trim();
+    const res = await updateExerciseVideoUrlInCatalogAction(exerciseId, cleanUrl, exName);
     if (res?.success) {
+      const targetId = res.exerciseId || exerciseId;
+      const lowerName = exName.toLowerCase().trim();
+
       setCatalogList((prev) =>
         prev.map((item) =>
-          item.id === exerciseId ? { ...item, videoUrl: videoUrl.trim() } : item
+          item.id === targetId || item.name.toLowerCase().trim() === lowerName
+            ? { ...item, videoUrl: cleanUrl }
+            : item
         )
       );
-      setTemplateSuccessMsg(
-        `✓ Link de YouTube guardado en la Base de Datos para "${exName}".`
+
+      setTemplatesList((prev) =>
+        prev.map((tpl) => ({
+          ...tpl,
+          days: tpl.days.map((d) => ({
+            ...d,
+            exercises: d.exercises.map((ex) =>
+              ex.exerciseId === targetId || ex.name.toLowerCase().trim() === lowerName
+                ? { ...ex, videoUrl: cleanUrl }
+                : ex
+            ),
+          })),
+        }))
       );
-      setTimeout(() => setTemplateSuccessMsg(null), 4000);
+
+      setRoutineDays((prev) =>
+        prev.map((d) => ({
+          ...d,
+          exercises: d.exercises.map((ex) =>
+            ex.exerciseId === targetId || ex.name.toLowerCase().trim() === lowerName
+              ? { ...ex, videoUrl: cleanUrl }
+              : ex
+          ),
+        }))
+      );
+
+      setTemplateSuccessMsg(
+        `✓ Link de YouTube fijado en la Base de Datos para "${exName}". Ya se aplicará automáticamente a todos tus nuevos clientes y plantillas.`
+      );
+      setTimeout(() => setTemplateSuccessMsg(null), 5000);
+    } else {
+      setSaveError(res?.error || `No se pudo fijar el video de "${exName}" en la BD.`);
     }
   }
 
