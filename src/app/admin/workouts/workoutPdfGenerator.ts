@@ -333,7 +333,7 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
       pdf.setTextColor(15, 118, 110);
       pdf.text(formatRestMinutes(ex.restSeconds), colRestX, cursorY + 17.5);
 
-      // 6. Enlace elegante tipo píldora minimalista para Video en YouTube
+      // 6. Enlace elegante minimalista para Video (sin caracteres raros de unicode)
       const targetVideoUrl =
         ex.videoUrl && ex.videoUrl.trim()
           ? ex.videoUrl.trim()
@@ -342,20 +342,33 @@ export async function generateWorkoutRoutinePdf(input: GenerateWorkoutPdfInput):
           : '';
 
       if (targetVideoUrl) {
-        const btnW = 56;
+        const btnW = 54;
         const btnH = 16;
-        const btnX = colVideoX;
+        const btnX = colVideoX + 2;
         const btnY = cursorY + 7.5;
 
-        pdf.setFillColor(236, 253, 245); // #ecfdf5
-        pdf.setDrawColor(167, 243, 208); // #a7f3d0
-        pdf.setLineWidth(0.75);
+        // Píldora de enlace limpia
+        pdf.setFillColor(241, 245, 249); // #f1f5f9
+        pdf.setDrawColor(203, 213, 225); // #cbd5e1
+        pdf.setLineWidth(0.6);
         pdf.roundedRect(btnX, btnY, btnW, btnH, 8, 8, 'FD');
 
+        // Ícono de play dibujado como triángulo vectorial perfecto (cero problemas de fuente/encoding)
+        const triX = btnX + 9;
+        const triY = btnY + 8;
+        pdf.setFillColor(15, 39, 32); // #0f2720 verde corporativo
+        pdf.triangle(
+          triX, triY - 3.5,
+          triX, triY + 3.5,
+          triX + 4.5, triY,
+          'F'
+        );
+
+        // Texto limpio en ASCII estándar
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(7.2);
-        pdf.setTextColor(6, 95, 70); // #065f46
-        pdf.text('▶ Ver video', btnX + btnW / 2, btnY + 10.5, { align: 'center' });
+        pdf.setTextColor(15, 39, 32); // #0f2720
+        pdf.text('Video', btnX + 28, btnY + 11);
 
         pdf.link(btnX, btnY, btnW, btnH, { url: targetVideoUrl });
         pdf.link(colExX, cursorY + 4, 245, 15, { url: targetVideoUrl });
