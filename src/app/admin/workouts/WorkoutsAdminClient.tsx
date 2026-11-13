@@ -561,8 +561,28 @@ export default function WorkoutsAdminClient({
         }))
       );
 
+      setPatientsList((prev) =>
+        prev.map((pat) => {
+          if (!pat.activePlan || !Array.isArray(pat.activePlan.days)) return pat;
+          return {
+            ...pat,
+            activePlan: {
+              ...pat.activePlan,
+              days: pat.activePlan.days.map((d) => ({
+                ...d,
+                exercises: d.exercises.map((ex) =>
+                  ex.exerciseId === targetId || ex.name.toLowerCase().trim() === lowerName
+                    ? { ...ex, videoUrl: cleanUrl }
+                    : ex
+                ),
+              })),
+            },
+          };
+        })
+      );
+
       setTemplateSuccessMsg(
-        `✓ Link de YouTube fijado en la Base de Datos para "${exName}". Ya se aplicará automáticamente a todos tus nuevos clientes y plantillas.`
+        `✓ Link de YouTube fijado en la Base de Datos para "${exName}". Se actualizó automáticamente en todas las rutinas y plantillas.`
       );
       setTimeout(() => setTemplateSuccessMsg(null), 5000);
     } else {

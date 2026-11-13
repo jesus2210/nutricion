@@ -622,7 +622,93 @@ export async function updateExerciseVideoUrlInCatalogAction(
       };
     }
 
+    // Propagar el nuevo video a TODAS las rutinas de pacientes (workout_plans) y plantillas guardadas
+    const cleanTargetName = (exerciseName || '').toLowerCase().trim();
+    const matchesExercise = (ex: any) =>
+      ex.exerciseId === targetId ||
+      ex.exerciseId === exerciseId ||
+      (cleanTargetName && String(ex.name || '').toLowerCase().trim() === cleanTargetName);
+
+    const updateDaysVideo = (days: any[]): { days: any[]; changed: boolean } => {
+      if (!Array.isArray(days)) return { days, changed: false };
+      let changed = false;
+      const updatedDays = days.map((day) => ({
+        ...day,
+        exercises: Array.isArray(day.exercises)
+          ? day.exercises.map((ex: any) => {
+              if (matchesExercise(ex) && ex.videoUrl !== cleanVideo) {
+                changed = true;
+                return { ...ex, videoUrl: cleanVideo };
+              }
+              return ex;
+            })
+          : [],
+      }));
+      return { days: updatedDays, changed };
+    };
+
+    // 1. Actualizar workout_plans existentes
+    const { data: allPlans } = await supabase
+      .from('workout_plans')
+      .select('id, days_config_json');
+
+    if (allPlans && allPlans.length > 0) {
+      await Promise.allSettled(
+        allPlans.map((plan: any) => {
+          const { days, changed } = updateDaysVideo(plan.days_config_json);
+          if (!changed) return Promise.resolve();
+          return supabase
+            .from('workout_plans')
+            .update({ days_config_json: days })
+            .eq('id', plan.id);
+        })
+      );
+    }
+
+    // 2. Actualizar plantillas guardadas (__ROUTINE_TEMPLATE__ y workout_templates)
+    const { data: tplRows } = await supabase
+      .from('exercise_catalog')
+      .select('id, tips')
+      .eq('muscle_group', '__ROUTINE_TEMPLATE__');
+
+    if (tplRows && tplRows.length > 0) {
+      await Promise.allSettled(
+        tplRows.map((row: any) => {
+          try {
+            const parsed = JSON.parse(row.tips || '{}');
+            const { days, changed } = updateDaysVideo(parsed.days);
+            if (!changed) return Promise.resolve();
+            parsed.days = days;
+            return supabase
+              .from('exercise_catalog')
+              .update({ tips: JSON.stringify(parsed) })
+              .eq('id', row.id);
+          } catch {
+            return Promise.resolve();
+          }
+        })
+      );
+    }
+
+    const { data: dedTpls } = await supabase
+      .from('workout_templates')
+      .select('id, days_config_json');
+
+    if (dedTpls && dedTpls.length > 0) {
+      await Promise.allSettled(
+        dedTpls.map((tpl: any) => {
+          const { days, changed } = updateDaysVideo(tpl.days_config_json);
+          if (!changed) return Promise.resolve();
+          return supabase
+            .from('workout_templates')
+            .update({ days_config_json: days })
+            .eq('id', tpl.id);
+        })
+      );
+    }
+
     revalidatePath('/admin/workouts');
+    revalidatePath('/portal/workout');
     return { success: true, exerciseId: targetId, videoUrl: cleanVideo };
   } catch (err: any) {
     return { error: err?.message || 'Error al actualizar video del ejercicio' };
