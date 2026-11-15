@@ -9,7 +9,12 @@ import SlideDeckPreview from '@/components/pdf/SlideDeckPreview';
 import { calculateEnergyExpenditure } from '@/domain/formulas/energy-expenditure';
 import { calculateNavyBodyFat } from '@/domain/formulas/body-composition';
 import { extractPatientIdentity } from '@/domain/entities/patient';
-import { adminSubmitCheckinAction } from './actions';
+import { adminSubmitCheckinAction, updatePatientFollowupConfigAction } from './actions';
+import {
+  calculateNextFollowupDate,
+  formatYMD,
+  FollowupFrequency,
+} from '@/domain/services/followup-scheduler';
 import {
   ArrowLeft,
   User,
@@ -66,6 +71,22 @@ export default function PatientDetailClient({
   const [isSubmittingCheckin, setIsSubmittingCheckin] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [checkinSuccess, setCheckinSuccess] = useState(false);
+
+  // Estados de Frecuencia de Seguimiento
+  const [followupFreq, setFollowupFreq] = useState<FollowupFrequency>(
+    patient?.allergies_or_notes?.includes('followupConfig')
+      ? (() => {
+          try {
+            const m = patient.allergies_or_notes.match(/CLINICAL_JSON:(.+)$/m);
+            return JSON.parse(m[1]).followupConfig?.frequency || 'biweekly';
+          } catch {
+            return 'biweekly';
+          }
+        })()
+      : 'biweekly'
+  );
+  const [isUpdatingFollowup, setIsUpdatingFollowup] = useState(false);
+  const [followupSuccessMsg, setFollowupSuccessMsg] = useState<string | null>(null);
 
   // Aplanar todas las fotos disponibles de todos los checkins para la galería deslizable
   const allPhotos: GalleryPhoto[] = checkins
@@ -167,6 +188,37 @@ export default function PatientDetailClient({
       hipCm: hipCm || waistCm * 1.25,
     });
     bodyFatPct = navy.bodyFatPercentage;
+  }
+
+  // Calcular próximo seguimiento del paciente
+  const followupCalc = calculateNextFollowupDate({
+    startDateStr: clinicalData.followupConfig?.customStartDate || patient.created_at?.split('T')[0] || formatYMD(new Date()),
+    frequency: followupFreq,
+    lastCheckinDateStr: latestCheckin?.checkin_date || null,
+    referenceDate: new Date(),
+  });
+
+  const nextFridayDisplay = followupCalc.nextFriday.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  async function handleSaveFollowupFreq(newFreq: FollowupFrequency) {
+    setFollowupFreq(newFreq);
+    setIsUpdatingFollowup(true);
+    setFollowupSuccessMsg(null);
+    try {
+      const res = await updatePatientFollowupConfigAction(patient.id, {
+        frequency: newFreq,
+      });
+      if (res.success) {
+        setFollowupSuccessMsg('Frecuencia de seguimiento actualizada');
+        setTimeout(() => setFollowupSuccessMsg(null), 3500);
+      }
+    } finally {
+      setIsUpdatingFollowup(false);
+    }
   }
 
   async function handleAdminSubmitCheckin(e: React.FormEvent<HTMLFormElement>) {
@@ -273,6 +325,62 @@ export default function PatientDetailClient({
                 <Flame className="h-3.5 w-3.5" />
                 Diseñar / Ajustar Plan
               </Link>
+            </div>
+          </div>
+
+          {/* Banner de Próximo Seguimiento de Medidas */}
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/5 bg-[#0e171b] p-3.5 sm:flex-row sm:items-center sm:justify-between text-xs">
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold ${
+                  followupCalc.status === 'overdue'
+                    ? 'border border-amber-500/40 bg-amber-950/60 text-amber-300'
+                    : followupCalc.status === 'due_this_friday'
+                    ? 'border border-emerald-500/40 bg-[#14352b] text-[#34d399]'
+                    : 'border border-white/10 bg-[#162229] text-[#94a3b8]'
+                }`}
+              >
+                <Calendar className="h-4 w-4" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white">Próximo Seguimiento:</span>
+                  <span
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold capitalize ${
+                      followupCalc.status === 'overdue'
+                        ? 'border-amber-500/40 bg-amber-950/60 text-amber-300'
+                        : followupCalc.status === 'due_this_friday'
+                        ? 'border-emerald-500/40 bg-[#14352b] text-[#34d399]'
+                        : 'border-white/10 bg-white/5 text-[#94a3b8]'
+                    }`}
+                  >
+                    {nextFridayDisplay} ({followupCalc.statusLabel})
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#64748b] mt-0.5">
+                  Último check-in:{' '}
+                  <strong className="text-[#cbd5e1]">{latestCheckin?.checkin_date || 'Sin check-ins previos'}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-[#94a3b8]">Frecuencia:</span>
+              <select
+                disabled={isUpdatingFollowup}
+                value={followupFreq}
+                onChange={(e) => handleSaveFollowupFreq(e.target.value as FollowupFrequency)}
+                className="rounded-lg border border-white/10 bg-[#162229] px-2.5 py-1 text-xs font-bold text-white focus:outline-none"
+              >
+                <option value="weekly">Semanal (cada 1 semana)</option>
+                <option value="biweekly">Quincenal (cada 2 semanas)</option>
+                <option value="monthly">Mensual (cada 4 semanas)</option>
+              </select>
+              {followupSuccessMsg && (
+                <span className="text-[10px] font-bold text-[#34d399]">
+                  {followupSuccessMsg}
+                </span>
+              )}
             </div>
           </div>
         </div>

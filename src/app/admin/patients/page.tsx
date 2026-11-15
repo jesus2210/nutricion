@@ -3,9 +3,14 @@
 
 import Link from 'next/link';
 import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server';
-import { Users, ChevronRight, Plus } from 'lucide-react';
+import { Users, ChevronRight, Plus, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { extractPatientIdentity } from '@/domain/entities/patient';
 import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
+import {
+  calculateNextFollowupDate,
+  formatYMD,
+  FollowupFrequency,
+} from '@/domain/services/followup-scheduler';
 
 export default async function PatientsListPage() {
   const supabase = await createServerSupabaseClient();
@@ -21,6 +26,19 @@ export default async function PatientsListPage() {
     .from('patient_profiles')
     .select('*, profiles(full_name, email, phone)')
     .order('created_at', { ascending: false });
+
+  // 3. Consultar últimos check-ins para calcular fecha exacta de seguimiento
+  const { data: checkinRows } = await supabase
+    .from('weekly_checkins')
+    .select('patient_id, checkin_date')
+    .order('checkin_date', { ascending: false });
+
+  const latestCheckinMap = new Map<string, string>();
+  for (const c of checkinRows || []) {
+    if (c.patient_id && !latestCheckinMap.has(c.patient_id) && c.checkin_date) {
+      latestCheckinMap.set(c.patient_id, c.checkin_date);
+    }
+  }
 
   const existingUserIds = new Set((patients || []).map((p: any) => p.user_id));
   const missingProfiles = (allPatientUsers || []).filter((u: any) => !existingUserIds.has(u.id));
@@ -104,7 +122,7 @@ export default async function PatientsListPage() {
                   <th className="pb-3">Sexo / Edad</th>
                   <th className="pb-3">Peso Inicial / Actual</th>
                   <th className="pb-3">Objetivo</th>
-                  <th className="pb-3">Nivel Actividad</th>
+                  <th className="pb-3">Próximo Seguimiento</th>
                   <th className="pb-3 text-right">Acción</th>
                 </tr>
               </thead>
@@ -113,6 +131,23 @@ export default async function PatientsListPage() {
                   const birthYear = p.birth_date ? new Date(p.birth_date).getFullYear() : null;
                   const age = birthYear ? new Date().getFullYear() - birthYear : '-';
                   const identity = extractPatientIdentity(p);
+                  const clinicalData = identity.clinicalData || {};
+                  const followupConfig = clinicalData.followupConfig || {};
+                  const freq: FollowupFrequency = followupConfig.frequency || 'biweekly';
+                  const startDateStr = followupConfig.customStartDate || p.created_at?.split('T')[0] || formatYMD(new Date());
+                  const lastCheckinStr = latestCheckinMap.get(p.id) || null;
+
+                  const calc = calculateNextFollowupDate({
+                    startDateStr,
+                    frequency: freq,
+                    lastCheckinDateStr: lastCheckinStr,
+                    referenceDate: new Date(),
+                  });
+
+                  const fridayFormatted = calc.nextFriday.toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'short',
+                  });
 
                   return (
                     <tr key={p.id} className="transition hover:bg-white/[0.02]">
@@ -141,7 +176,29 @@ export default async function PatientsListPage() {
                           {p.target_goal}
                         </span>
                       </td>
-                      <td className="py-3.5 capitalize text-[#94a3b8]">{p.activity_level}</td>
+                      <td className="py-3.5">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex items-center gap-1.5 w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold ${
+                              calc.status === 'overdue'
+                                ? 'border-amber-500/40 bg-amber-950/60 text-amber-300'
+                                : calc.status === 'due_this_friday'
+                                ? 'border-emerald-500/40 bg-[#14352b] text-[#34d399]'
+                                : 'border-white/10 bg-white/5 text-[#94a3b8]'
+                            }`}
+                          >
+                            {calc.status === 'overdue' ? (
+                              <AlertCircle className="h-3 w-3" />
+                            ) : (
+                              <Calendar className="h-3 w-3" />
+                            )}
+                            <span>{fridayFormatted}</span>
+                          </span>
+                          <span className="text-[10px] text-[#64748b]">
+                            {freq === 'weekly' ? 'Semanal' : freq === 'monthly' ? 'Mensual' : 'Quincenal'}
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3.5 text-right">
                         <Link
                           href={`/admin/patients/${p.id}`}

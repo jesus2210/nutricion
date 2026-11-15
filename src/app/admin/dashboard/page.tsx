@@ -6,6 +6,15 @@ import { createServerSupabaseClient } from '@/infrastructure/db/supabase/server'
 import { Users, FileText, Activity, TrendingUp, Plus, ArrowRight, Calendar } from 'lucide-react';
 import { extractPatientIdentity } from '@/domain/entities/patient';
 import RegisterPatientModalButton from '@/components/admin/RegisterPatientModalButton';
+import FollowupDueWidget from '@/components/admin/FollowupDueWidget';
+import {
+  calculateNextFollowupDate,
+  formatYMD,
+  getFridayOfSameWeek,
+  getFridayOfNextWeek,
+  FollowupFrequency,
+  PatientFollowupInfo,
+} from '@/domain/services/followup-scheduler';
 
 export default async function AdminDashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -13,7 +22,7 @@ export default async function AdminDashboardPage() {
   // Consultar pacientes
   const { data: patients } = await supabase
     .from('patient_profiles')
-    .select('*, profiles(full_name, email)')
+    .select('*, profiles(full_name, email, phone)')
     .order('created_at', { ascending: false });
 
   // Consultar check-ins recientes
@@ -21,7 +30,7 @@ export default async function AdminDashboardPage() {
     .from('weekly_checkins')
     .select('*, patient_profiles(*, profiles(full_name))')
     .order('checkin_date', { ascending: false })
-    .limit(5);
+    .limit(30);
 
   // Consultar planes activos
   const { count: activePlansCount } = await supabase
@@ -30,6 +39,76 @@ export default async function AdminDashboardPage() {
     .eq('is_current', true);
 
   const totalPatients = patients?.length || 0;
+
+  // Mapa de último check-in por paciente
+  const latestCheckinByPatient = new Map<string, string>();
+  for (const c of recentCheckins || []) {
+    if (c.patient_id && !latestCheckinByPatient.has(c.patient_id) && c.checkin_date) {
+      latestCheckinByPatient.set(c.patient_id, c.checkin_date);
+    }
+  }
+
+  // Calcular seguimientos de cada paciente
+  const today = new Date();
+  const thisWeekFriday = getFridayOfSameWeek(today);
+  const targetFriday = today.getDay() > 5 ? getFridayOfNextWeek(today) : thisWeekFriday;
+  const targetFridayStr = formatYMD(targetFriday);
+
+  const followups: PatientFollowupInfo[] = (patients || []).map((p: any) => {
+    const identity = extractPatientIdentity(p);
+    const clinicalData = identity.clinicalData || {};
+    const followupConfig = clinicalData.followupConfig || {};
+
+    const freq: FollowupFrequency = followupConfig.frequency || 'biweekly';
+    const startDateStr = followupConfig.customStartDate || p.created_at?.split('T')[0] || formatYMD(today);
+    const lastCheckinStr = latestCheckinByPatient.get(p.id) || null;
+
+    const calc = calculateNextFollowupDate({
+      startDateStr,
+      frequency: freq,
+      lastCheckinDateStr: lastCheckinStr,
+      referenceDate: today,
+    });
+
+    const nextFridayStr = formatYMD(calc.nextFriday);
+    const diffDays = Math.round(
+      (calc.nextFriday.getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24)
+    );
+
+    const freqLabels: Record<FollowupFrequency, string> = {
+      weekly: 'Semanal (1 sem)',
+      biweekly: 'Quincenal (2 sem)',
+      monthly: 'Mensual (4 sem)',
+    };
+
+    let statusLabel = 'Próximo ciclo';
+    if (calc.status === 'overdue') statusLabel = 'Atrasado';
+    else if (calc.status === 'due_this_friday') statusLabel = 'Toca este Viernes';
+
+    return {
+      patientId: p.id,
+      fullName: identity.fullName,
+      email: identity.email,
+      phone: identity.phone,
+      isManualPatient: identity.isManualPatient,
+      frequency: freq,
+      frequencyLabel: freqLabels[freq] || 'Quincenal (2 sem)',
+      startDate: startDateStr,
+      lastCheckinDate: lastCheckinStr,
+      nextFridayDate: nextFridayStr,
+      daysUntilNextFriday: diffDays,
+      status: calc.status,
+      statusLabel,
+      isDueThisCycle: calc.isDueThisCycle,
+    };
+  });
+
+  // Ordenar: primero los que tocan este viernes / atrasados, luego por fecha ascendente
+  followups.sort((a, b) => {
+    if (a.isDueThisCycle && !b.isDueThisCycle) return -1;
+    if (!a.isDueThisCycle && b.isDueThisCycle) return 1;
+    return a.nextFridayDate.localeCompare(b.nextFridayDate);
+  });
 
   return (
     <div className="space-y-8">
@@ -91,13 +170,23 @@ export default async function AdminDashboardPage() {
 
         <div className="rounded-2xl border border-white/10 bg-[#111a1f] p-5 shadow-sm">
           <div className="flex items-center justify-between text-[#94a3b8]">
-            <span className="text-xs font-bold uppercase tracking-wider">Protocolo</span>
-            <TrendingUp className="h-5 w-5 text-[#a855f7]" />
+            <span className="text-xs font-bold uppercase tracking-wider">Seguimientos Viernes</span>
+            <Calendar className="h-5 w-5 text-[#34d399]" />
           </div>
-          <div className="mt-2 font-heading text-3xl font-extrabold text-white">16:9 HD</div>
-          <div className="mt-1 text-xs text-[#34d399]">Contreras Nutrición Fit</div>
+          <div className="mt-2 font-heading text-3xl font-extrabold text-white">
+            {followups.filter((f) => f.isDueThisCycle).length}
+          </div>
+          <div className="mt-1 text-xs text-[#34d399]">
+            {targetFridayStr} (revisión de medidas)
+          </div>
         </div>
       </div>
+
+      {/* Widget Especial: Seguimientos de Progreso de Pacientes */}
+      <FollowupDueWidget
+        followups={followups}
+        targetFridayDate={targetFridayStr}
+      />
 
       {/* Secciones: Pacientes & Check-ins Recientes */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
