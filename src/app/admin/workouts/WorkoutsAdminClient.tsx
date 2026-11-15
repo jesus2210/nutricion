@@ -1474,14 +1474,22 @@ export default function WorkoutsAdminClient({
                                   type="number"
                                   min="1"
                                   max="12"
-                                  value={ex.targetSets}
-                                  onChange={(e) =>
-                                    updateRoutineExercise(
-                                      exIdx,
-                                      'targetSets',
-                                      Math.max(1, Number(e.target.value) || 1)
-                                    )
-                                  }
+                                  value={ex.targetSets === 0 ? '' : ex.targetSets}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      updateRoutineExercise(exIdx, 'targetSets', '');
+                                    } else {
+                                      const n = parseInt(raw, 10);
+                                      updateRoutineExercise(exIdx, 'targetSets', isNaN(n) ? '' : Math.max(1, n));
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (ex.targetSets === '' || Number(ex.targetSets) < 1) {
+                                      updateRoutineExercise(exIdx, 'targetSets', 3);
+                                    }
+                                  }}
+                                  placeholder="Series"
                                   className="mt-0.5 w-full rounded-lg border border-white/10 bg-[#111a1f] px-2.5 py-1.5 text-xs font-bold text-white focus:border-[#34d399] focus:outline-none"
                                 />
                               </div>
@@ -1869,8 +1877,15 @@ export default function WorkoutsAdminClient({
                         type="number"
                         min="1"
                         max="10"
-                        value={customExSets}
-                        onChange={(e) => setCustomExSets(Math.max(1, Number(e.target.value) || 3))}
+                        value={customExSets === 0 ? '' : customExSets}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') setCustomExSets(0);
+                          else setCustomExSets(parseInt(val, 10) || 0);
+                        }}
+                        onBlur={() => {
+                          if (!customExSets || customExSets < 1) setCustomExSets(3);
+                        }}
                         className="w-full bg-transparent text-center text-xs font-bold text-white focus:outline-none"
                       />
                     </div>

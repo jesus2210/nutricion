@@ -39,6 +39,7 @@ export interface PatientIdentityInfo {
   email: string | null;
   phone: string | null;
   isManualPatient: boolean;
+  isActive: boolean;
   clinicalData: Record<string, any>;
 }
 
@@ -80,12 +81,14 @@ export function extractPatientIdentity(patientRow: any): PatientIdentityInfo {
   const isManualPatient = Boolean(
     !patientRow?.user_id || clinicalData.isManualPatient || isInternalPlaceholderEmail
   );
+  const isActive = clinicalData.isActive !== false;
 
   return {
     fullName: rawFullName,
     email: cleanEmail,
     phone: cleanPhone,
     isManualPatient,
+    isActive,
     clinicalData,
   };
 }

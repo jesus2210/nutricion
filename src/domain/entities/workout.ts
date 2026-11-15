@@ -223,7 +223,7 @@ export interface RoutineExercise {
   name: string;
   muscleGroup: MuscleGroup;
   equipment: string;
-  targetSets: number;
+  targetSets: number | '';
   targetReps: string;
   targetRir: string;
   restSeconds: number;

@@ -156,6 +156,11 @@ export default async function PatientsListPage() {
                       <td className="py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-white">{identity.fullName}</span>
+                          {!identity.isActive && (
+                            <span className="rounded-md border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                              Inactivo / Pausado
+                            </span>
+                          )}
                           {identity.isManualPatient && (
                             <span className="rounded-md border border-[#245748] bg-[#14352b]/70 px-1.5 py-0.5 text-[10px] font-semibold text-[#34d399]">
                               Sin cuenta
@@ -179,27 +184,33 @@ export default async function PatientsListPage() {
                         </span>
                       </td>
                       <td className="py-3.5">
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1.5 w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold ${
-                              calc.status === 'overdue'
-                                ? 'border-amber-500/40 bg-amber-950/60 text-amber-300'
-                                : calc.status === 'due_this_friday'
-                                ? 'border-emerald-500/40 bg-[#14352b] text-[#34d399]'
-                                : 'border-white/10 bg-white/5 text-[#94a3b8]'
-                            }`}
-                          >
-                            {calc.status === 'overdue' ? (
-                              <AlertCircle className="h-3 w-3" />
-                            ) : (
-                              <Calendar className="h-3 w-3" />
-                            )}
-                            <span>{fridayFormatted}</span>
+                        {!identity.isActive ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-700/60 bg-slate-800/40 px-2 py-0.5 text-[10px] text-slate-400">
+                            Pausado (Sin chequeos)
                           </span>
-                          <span className="text-[10px] text-[#64748b]">
-                            {freq === 'weekly' ? 'Semanal' : freq === 'monthly' ? 'Mensual' : 'Quincenal'}
-                          </span>
-                        </div>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1.5 w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold ${
+                                calc.status === 'overdue'
+                                  ? 'border-amber-500/40 bg-amber-950/60 text-amber-300'
+                                  : calc.status === 'due_this_friday'
+                                  ? 'border-emerald-500/40 bg-[#14352b] text-[#34d399]'
+                                  : 'border-white/10 bg-white/5 text-[#94a3b8]'
+                              }`}
+                            >
+                              {calc.status === 'overdue' ? (
+                                <AlertCircle className="h-3 w-3" />
+                              ) : (
+                                <Calendar className="h-3 w-3" />
+                              )}
+                              <span>{fridayFormatted}</span>
+                            </span>
+                            <span className="text-[10px] text-[#64748b]">
+                              {freq === 'weekly' ? 'Semanal' : freq === 'monthly' ? 'Mensual' : 'Quincenal'}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 text-right">
                         <Link

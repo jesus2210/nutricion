@@ -54,10 +54,15 @@ export default async function AdminDashboardPage() {
   const targetFriday = today.getDay() > 5 ? getFridayOfNextWeek(today) : thisWeekFriday;
   const targetFridayStr = formatYMD(targetFriday);
 
-  const followups: PatientFollowupInfo[] = (patients || []).map((p: any) => {
-    const identity = extractPatientIdentity(p);
-    const clinicalData = identity.clinicalData || {};
-    const followupConfig = clinicalData.followupConfig || {};
+  const followups: PatientFollowupInfo[] = (patients || [])
+    .filter((p: any) => {
+      const identity = extractPatientIdentity(p);
+      return identity.isActive; // Excluir pacientes pausados/inactivos
+    })
+    .map((p: any) => {
+      const identity = extractPatientIdentity(p);
+      const clinicalData = identity.clinicalData || {};
+      const followupConfig = clinicalData.followupConfig || {};
 
     const freq: FollowupFrequency = followupConfig.frequency || 'biweekly';
     const startDateStr = followupConfig.customStartDate || p.created_at?.split('T')[0] || formatYMD(today);

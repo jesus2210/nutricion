@@ -69,10 +69,25 @@ export default async function AdminCalculatorPage({
     }
   });
 
+  // 5. Obtener los planes nutricionales activos vigentes para pre-cargar porciones y distribución
+  const { data: activePlans } = await supabase
+    .from('diet_plans')
+    .select('patient_id, title, goal, portions, meals, target_calories')
+    .eq('is_current', true)
+    .order('created_at', { ascending: false });
+
+  const activePlanMap = new Map();
+  (activePlans || []).forEach((plan: any) => {
+    if (!activePlanMap.has(plan.patient_id)) {
+      activePlanMap.set(plan.patient_id, plan);
+    }
+  });
+
   const patients = (rawPatients || []).map((p: any) => {
     const checkin = checkinMap.get(p.id);
     const identity = extractPatientIdentity(p);
     const clinicalData = identity.clinicalData || {};
+    const existingPlan = activePlanMap.get(p.id) || clinicalData.activePlan || null;
 
     // El peso actual prioriza: 1. Último check-in -> 2. current_weight_kg -> 3. initial_weight_kg
     const currentWeight = Number(
@@ -98,6 +113,15 @@ export default async function AdminCalculatorPage({
       waistCm: waist,
       hipCm: hip,
       neckCm: neck,
+      existingPlan: existingPlan
+        ? {
+            title: existingPlan.title,
+            goal: existingPlan.goal,
+            portions: existingPlan.portions,
+            meals: existingPlan.meals,
+            targetCalories: existingPlan.target_calories,
+          }
+        : null,
     };
   });
 

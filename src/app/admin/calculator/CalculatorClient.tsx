@@ -44,6 +44,13 @@ interface PatientOption {
   waistCm?: number | null;
   hipCm?: number | null;
   neckCm?: number | null;
+  existingPlan?: {
+    title: string;
+    goal: string;
+    portions: DailyPortions;
+    meals: MealDistribution[];
+    targetCalories?: number;
+  } | null;
 }
 
 export default function CalculatorClient({
@@ -172,27 +179,34 @@ export default function CalculatorClient({
     });
   }
 
-  // Estados para Plan de Porciones y Comidas
+  // Estados para Plan de Porciones y Comidas (pre-cargando el plan existente si el paciente ya tiene uno)
   const [planTitle, setPlanTitle] = useState(
-    defaultPatient ? `Plan de Alimentación • ${defaultPatient.fullName}` : 'Plan de Alimentación • Fase 1'
+    defaultPatient?.existingPlan?.title ||
+      (defaultPatient ? `Plan de Alimentación • ${defaultPatient.fullName}` : 'Plan de Alimentación • Fase 1')
   );
-  const [planGoal, setPlanGoal] = useState(defaultPatient?.targetGoal || 'Superávit Limpio / Recomposición');
-  const [portions, setPortions] = useState<DailyPortions>({
-    starch: 9,
-    protein: 9,
-    fat: 11,
-    fruit: 2,
-    dairy: 1,
-  });
-
-  const [meals, setMeals] = useState<MealDistribution[]>(() =>
-    autoDistributeMeals({
+  const [planGoal, setPlanGoal] = useState(
+    defaultPatient?.existingPlan?.goal || defaultPatient?.targetGoal || 'Superávit Limpio / Recomposición'
+  );
+  const [portions, setPortions] = useState<DailyPortions>(
+    defaultPatient?.existingPlan?.portions || {
       starch: 9,
       protein: 9,
       fat: 11,
       fruit: 2,
       dairy: 1,
-    })
+    }
+  );
+
+  const [meals, setMeals] = useState<MealDistribution[]>(() =>
+    defaultPatient?.existingPlan?.meals && defaultPatient.existingPlan.meals.length > 0
+      ? structuredClone(defaultPatient.existingPlan.meals)
+      : autoDistributeMeals({
+          starch: 9,
+          protein: 9,
+          fat: 11,
+          fruit: 2,
+          dairy: 1,
+        })
   );
 
   const [isSaving, setIsSaving] = useState(false);
@@ -205,9 +219,18 @@ export default function CalculatorClient({
     setGender(p.gender || 'female');
     setWeightKg(targetWeight);
     setHeightCm(Number(p.heightCm) || 165);
-    setPlanGoal(p.targetGoal || 'Recomposición');
+    setPlanGoal(p.existingPlan?.goal || p.targetGoal || 'Recomposición');
     if (p.fullName) {
-      setPlanTitle(`Plan de Alimentación • ${p.fullName}`);
+      setPlanTitle(p.existingPlan?.title || `Plan de Alimentación • ${p.fullName}`);
+    }
+    // Traer porciones y distribución de comidas existentes del paciente si ya tiene un plan
+    if (p.existingPlan) {
+      if (p.existingPlan.portions) {
+        setPortions(structuredClone(p.existingPlan.portions));
+      }
+      if (Array.isArray(p.existingPlan.meals) && p.existingPlan.meals.length > 0) {
+        setMeals(structuredClone(p.existingPlan.meals));
+      }
     }
     setActivityLevel(p.activityLevel || 'moderate');
     if (p.birthDate) {

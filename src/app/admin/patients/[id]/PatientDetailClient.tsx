@@ -9,7 +9,11 @@ import SlideDeckPreview from '@/components/pdf/SlideDeckPreview';
 import { calculateEnergyExpenditure } from '@/domain/formulas/energy-expenditure';
 import { calculateNavyBodyFat } from '@/domain/formulas/body-composition';
 import { extractPatientIdentity } from '@/domain/entities/patient';
-import { adminSubmitCheckinAction, updatePatientFollowupConfigAction } from './actions';
+import {
+  adminSubmitCheckinAction,
+  updatePatientFollowupConfigAction,
+  togglePatientActiveStatusAction,
+} from './actions';
 import {
   calculateNextFollowupDate,
   formatYMD,
@@ -39,6 +43,7 @@ import {
   Loader2,
   Check,
   Dumbbell,
+  Power,
 } from 'lucide-react';
 import PhotoGalleryModal, { GalleryPhoto } from '@/components/portal/PhotoGalleryModal';
 import ProgressCharts from '@/components/portal/ProgressCharts';
@@ -99,6 +104,19 @@ export default function PatientDetailClient({
   );
   const [isUpdatingFollowup, setIsUpdatingFollowup] = useState(false);
   const [followupSuccessMsg, setFollowupSuccessMsg] = useState<string | null>(null);
+
+  // Estado Activo / Inactivo del Paciente
+  const [isActivePatient, setIsActivePatient] = useState<boolean>(() => {
+    try {
+      const match = String(patient?.allergies_or_notes || '').match(/CLINICAL_JSON:(.+)$/m);
+      if (match && match[1]) {
+        const c = JSON.parse(match[1]);
+        return c.isActive !== false;
+      }
+    } catch {}
+    return true;
+  });
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
 
   // Aplanar todas las fotos disponibles de todos los checkins para la galería deslizable
   const allPhotos: GalleryPhoto[] = checkins
@@ -257,6 +275,25 @@ export default function PatientDetailClient({
     }
   }
 
+  async function handleToggleActiveStatus() {
+    setIsTogglingActive(true);
+    const newStatus = !isActivePatient;
+    try {
+      const res = await togglePatientActiveStatusAction(patient.id, newStatus);
+      if (res.success) {
+        setIsActivePatient(newStatus);
+        setFollowupSuccessMsg(
+          newStatus
+            ? 'Paciente reactivado en el seguimiento clínico'
+            : 'Paciente pausado (no aparecerá en próximos chequeos)'
+        );
+        setTimeout(() => setFollowupSuccessMsg(null), 4000);
+      }
+    } finally {
+      setIsTogglingActive(false);
+    }
+  }
+
   async function handleAdminSubmitCheckin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSubmittingCheckin(true);
@@ -317,6 +354,11 @@ export default function PatientDetailClient({
                   <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${bmiColor}`}>
                     IMC {bmi} ({bmiCategory})
                   </span>
+                  {!isActivePatient && (
+                    <span className="rounded-full bg-slate-800 border border-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-slate-300">
+                      Pausado / Inactivo
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-[#94a3b8]">
@@ -339,6 +381,24 @@ export default function PatientDetailClient({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={isTogglingActive}
+                onClick={handleToggleActiveStatus}
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition cursor-pointer ${
+                  isActivePatient
+                    ? 'border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                    : 'border-emerald-500/40 bg-[#14352b] text-[#34d399] hover:bg-[#1b4337]'
+                }`}
+                title={
+                  isActivePatient
+                    ? 'Pausar paciente (no aparecerá en el calendario de chequeos)'
+                    : 'Reactivar paciente en el seguimiento clínico'
+                }
+              >
+                <Power className="h-3.5 w-3.5" />
+                {isActivePatient ? 'Pausar Paciente' : 'Reactivar Paciente'}
+              </button>
               <button
                 type="button"
                 onClick={() => setIsCheckinModalOpen(true)}

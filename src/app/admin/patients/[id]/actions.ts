@@ -275,3 +275,74 @@ export async function updatePatientFollowupConfigAction(
     return { error: err?.message || 'Error al actualizar configuración de seguimiento' };
   }
 }
+
+/**
+ * Activa o Inactiva un paciente sin eliminarlo de la base de datos
+ * (Los pacientes inactivos no aparecen en el calendario/lista de próximos seguimientos)
+ */
+export async function togglePatientActiveStatusAction(
+  patientId: string,
+  isActive: boolean
+) {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: 'No autorizado' };
+    }
+
+    const { data: patientRow, error: pErr } = await supabase
+      .from('patient_profiles')
+      .select('id, allergies_or_notes')
+      .eq('id', patientId)
+      .single();
+
+    if (pErr || !patientRow) {
+      return { error: 'No se encontró el paciente' };
+    }
+
+    let clinicalData: Record<string, any> = {};
+    let prefixText = '';
+    if (patientRow.allergies_or_notes) {
+      const match = String(patientRow.allergies_or_notes).match(/CLINICAL_JSON:(.+)$/m);
+      if (match && match[1]) {
+        try {
+          clinicalData = JSON.parse(match[1]);
+        } catch {
+          clinicalData = {};
+        }
+      }
+      prefixText = String(patientRow.allergies_or_notes).replace(/CLINICAL_JSON:.+$/m, '').trim();
+    }
+
+    clinicalData.isActive = isActive;
+    clinicalData.statusChangedAt = new Date().toISOString();
+
+    const newAllergies = prefixText
+      ? `${prefixText}\nCLINICAL_JSON:${JSON.stringify(clinicalData)}`
+      : `CLINICAL_JSON:${JSON.stringify(clinicalData)}`;
+
+    const { error: updErr } = await supabase
+      .from('patient_profiles')
+      .update({
+        allergies_or_notes: newAllergies,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', patientId);
+
+    if (updErr) {
+      return { error: updErr.message };
+    }
+
+    revalidatePath(`/admin/patients/${patientId}`);
+    revalidatePath('/admin/patients');
+    revalidatePath('/admin/dashboard');
+
+    return { success: true, isActive };
+  } catch (err: any) {
+    return { error: err?.message || 'Error al cambiar estado del paciente' };
+  }
+}
