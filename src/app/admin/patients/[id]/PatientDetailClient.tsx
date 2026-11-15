@@ -85,6 +85,18 @@ export default function PatientDetailClient({
         })()
       : 'biweekly'
   );
+  const [postponedFriday, setPostponedFriday] = useState<string | null>(
+    patient?.allergies_or_notes?.includes('followupConfig')
+      ? (() => {
+          try {
+            const m = patient.allergies_or_notes.match(/CLINICAL_JSON:(.+)$/m);
+            return JSON.parse(m[1]).followupConfig?.postponedUntilFriday || null;
+          } catch {
+            return null;
+          }
+        })()
+      : null
+  );
   const [isUpdatingFollowup, setIsUpdatingFollowup] = useState(false);
   const [followupSuccessMsg, setFollowupSuccessMsg] = useState<string | null>(null);
 
@@ -195,6 +207,7 @@ export default function PatientDetailClient({
     startDateStr: clinicalData.followupConfig?.customStartDate || patient.created_at?.split('T')[0] || formatYMD(new Date()),
     frequency: followupFreq,
     lastCheckinDateStr: latestCheckin?.checkin_date || null,
+    postponedUntilFridayStr: postponedFriday,
     referenceDate: new Date(),
   });
 
@@ -215,6 +228,29 @@ export default function PatientDetailClient({
       if (res.success) {
         setFollowupSuccessMsg('Frecuencia de seguimiento actualizada');
         setTimeout(() => setFollowupSuccessMsg(null), 3500);
+      }
+    } finally {
+      setIsUpdatingFollowup(false);
+    }
+  }
+
+  async function handlePostponeToNextFriday() {
+    setIsUpdatingFollowup(true);
+    setFollowupSuccessMsg(null);
+    try {
+      // Tomar el viernes calculado actual y sumarle 7 días para llevarlo al siguiente viernes
+      const targetDate = new Date(followupCalc.nextFriday);
+      targetDate.setDate(targetDate.getDate() + 7);
+      const newFridayStr = formatYMD(targetDate);
+
+      const res = await updatePatientFollowupConfigAction(patient.id, {
+        frequency: followupFreq,
+        postponedUntilFriday: newFridayStr,
+      });
+      if (res.success) {
+        setPostponedFriday(newFridayStr);
+        setFollowupSuccessMsg(`Pospuesto para el viernes ${targetDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`);
+        setTimeout(() => setFollowupSuccessMsg(null), 4000);
       }
     } finally {
       setIsUpdatingFollowup(false);
@@ -364,7 +400,19 @@ export default function PatientDetailClient({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {(followupCalc.status === 'overdue' || followupCalc.status === 'due_this_friday') && (
+                <button
+                  type="button"
+                  disabled={isUpdatingFollowup}
+                  onClick={handlePostponeToNextFriday}
+                  className="rounded-lg border border-amber-500/30 bg-amber-950/40 px-2.5 py-1 text-xs font-semibold text-amber-200 transition hover:bg-amber-900/50 cursor-pointer"
+                  title="Posponer el seguimiento de este paciente al siguiente viernes"
+                >
+                  ⏱ Posponer al sig. Viernes
+                </button>
+              )}
+
               <span className="text-[11px] text-[#94a3b8]">Frecuencia:</span>
               <select
                 disabled={isUpdatingFollowup}

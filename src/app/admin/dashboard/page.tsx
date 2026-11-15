@@ -62,11 +62,13 @@ export default async function AdminDashboardPage() {
     const freq: FollowupFrequency = followupConfig.frequency || 'biweekly';
     const startDateStr = followupConfig.customStartDate || p.created_at?.split('T')[0] || formatYMD(today);
     const lastCheckinStr = latestCheckinByPatient.get(p.id) || null;
+    const postponedStr = followupConfig.postponedUntilFriday || null;
 
     const calc = calculateNextFollowupDate({
       startDateStr,
       frequency: freq,
       lastCheckinDateStr: lastCheckinStr,
+      postponedUntilFridayStr: postponedStr,
       referenceDate: today,
     });
 
@@ -81,10 +83,6 @@ export default async function AdminDashboardPage() {
       monthly: 'Mensual (4 sem)',
     };
 
-    let statusLabel = 'Próximo ciclo';
-    if (calc.status === 'overdue') statusLabel = 'Atrasado';
-    else if (calc.status === 'due_this_friday') statusLabel = 'Toca este Viernes';
-
     return {
       patientId: p.id,
       fullName: identity.fullName,
@@ -98,8 +96,9 @@ export default async function AdminDashboardPage() {
       nextFridayDate: nextFridayStr,
       daysUntilNextFriday: diffDays,
       status: calc.status,
-      statusLabel,
+      statusLabel: calc.statusLabel,
       isDueThisCycle: calc.isDueThisCycle,
+      postponedUntilFriday: postponedStr,
     };
   });
 

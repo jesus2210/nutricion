@@ -136,11 +136,13 @@ export default async function PatientsListPage() {
                   const freq: FollowupFrequency = followupConfig.frequency || 'biweekly';
                   const startDateStr = followupConfig.customStartDate || p.created_at?.split('T')[0] || formatYMD(new Date());
                   const lastCheckinStr = latestCheckinMap.get(p.id) || null;
+                  const postponedStr = followupConfig.postponedUntilFriday || null;
 
                   const calc = calculateNextFollowupDate({
                     startDateStr,
                     frequency: freq,
                     lastCheckinDateStr: lastCheckinStr,
+                    postponedUntilFridayStr: postponedStr,
                     referenceDate: new Date(),
                   });
 

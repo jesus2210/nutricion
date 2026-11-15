@@ -202,6 +202,7 @@ export async function updatePatientFollowupConfigAction(
   config: {
     frequency: 'weekly' | 'biweekly' | 'monthly';
     customStartDate?: string;
+    postponedUntilFriday?: string | null;
   }
 ) {
   try {
@@ -238,9 +239,14 @@ export async function updatePatientFollowupConfigAction(
       prefixText = String(patientRow.allergies_or_notes).replace(/CLINICAL_JSON:.+$/m, '').trim();
     }
 
+    const existingFollowup = clinicalData.followupConfig || {};
     clinicalData.followupConfig = {
-      frequency: config.frequency,
-      customStartDate: config.customStartDate || clinicalData.followupConfig?.customStartDate || undefined,
+      frequency: config.frequency || existingFollowup.frequency || 'biweekly',
+      customStartDate: config.customStartDate !== undefined ? config.customStartDate : existingFollowup.customStartDate,
+      postponedUntilFriday:
+        config.postponedUntilFriday !== undefined
+          ? config.postponedUntilFriday
+          : existingFollowup.postponedUntilFriday || null,
       updatedAt: new Date().toISOString(),
     };
 

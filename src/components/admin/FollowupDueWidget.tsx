@@ -81,6 +81,41 @@ export default function FollowupDueWidget({
     }
   }
 
+  async function handlePostponeToNextFriday(item: PatientFollowupInfo) {
+    setSavingId(item.patientId);
+    try {
+      const currentTarget = new Date(item.nextFridayDate + 'T00:00:00');
+      currentTarget.setDate(currentTarget.getDate() + 7);
+      const newFridayStr = `${currentTarget.getFullYear()}-${String(
+        currentTarget.getMonth() + 1
+      ).padStart(2, '0')}-${String(currentTarget.getDate()).padStart(2, '0')}`;
+
+      const res = await updatePatientFollowupConfigAction(item.patientId, {
+        frequency: item.frequency,
+        postponedUntilFriday: newFridayStr,
+      });
+
+      if (res.success) {
+        setLocalFollowups((prev) =>
+          prev.map((f) =>
+            f.patientId === item.patientId
+              ? {
+                  ...f,
+                  nextFridayDate: newFridayStr,
+                  status: 'scheduled_future',
+                  statusLabel: 'Pospuesto al sig. Viernes',
+                  isDueThisCycle: false,
+                  postponedUntilFriday: newFridayStr,
+                }
+              : f
+          )
+        );
+      }
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111a1f] p-5 shadow-sm">
       {/* Encabezado */}
@@ -296,7 +331,19 @@ export default function FollowupDueWidget({
                 </div>
 
                 {/* Acciones Rápidas */}
-                <div className="flex items-center gap-2 self-end sm:self-center">
+                <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
+                  {(item.status === 'overdue' || item.status === 'due_this_friday') && (
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => handlePostponeToNextFriday(item)}
+                      className="rounded-xl border border-amber-500/30 bg-amber-950/40 px-2.5 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-900/50 cursor-pointer disabled:opacity-50"
+                      title="Posponer este chequeo atrasado para el próximo viernes"
+                    >
+                      {isSaving ? 'Guardando...' : '⏱ Correr al sig. Viernes'}
+                    </button>
+                  )}
+
                   {item.phone && (
                     <a
                       href={`https://wa.me/${item.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(

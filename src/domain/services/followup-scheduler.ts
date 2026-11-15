@@ -17,6 +17,7 @@ export interface PatientFollowupInfo {
   status: 'due_this_friday' | 'overdue' | 'scheduled_future';
   statusLabel: string;
   isDueThisCycle: boolean; // Le toca en el viernes próximo inmediato
+  postponedUntilFriday?: string | null;
 }
 
 /**
@@ -88,11 +89,13 @@ export function calculateNextFollowupDate({
   startDateStr,
   frequency = 'biweekly',
   lastCheckinDateStr,
+  postponedUntilFridayStr,
   referenceDate = new Date(),
 }: {
   startDateStr: string;
   frequency?: FollowupFrequency;
   lastCheckinDateStr?: string | null;
+  postponedUntilFridayStr?: string | null;
   referenceDate?: Date;
 }): {
   nextFriday: Date;
@@ -102,6 +105,36 @@ export function calculateNextFollowupDate({
 } {
   const ref = new Date(referenceDate);
   ref.setHours(0, 0, 0, 0);
+
+  // Si el nutricionista pospuso manualmente el chequeo a un viernes específico:
+  if (postponedUntilFridayStr) {
+    const postponedDate = new Date(postponedUntilFridayStr + 'T00:00:00');
+    if (!isNaN(postponedDate.getTime())) {
+      const diffDays = Math.round((postponedDate.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
+      const thisWeekFriday = getFridayOfSameWeek(ref);
+      const nextTargetFriday = ref.getDay() > 5 ? getFridayOfNextWeek(ref) : thisWeekFriday;
+
+      let status: 'due_this_friday' | 'overdue' | 'scheduled_future' = 'scheduled_future';
+      let statusLabel = 'Pospuesto';
+      let isDueThisCycle = false;
+
+      if (diffDays < 0) {
+        status = 'overdue';
+        statusLabel = 'Atrasado';
+        isDueThisCycle = true;
+      } else if (diffDays <= 7 && postponedDate.getTime() <= nextTargetFriday.getTime()) {
+        status = 'due_this_friday';
+        statusLabel = 'Toca este Viernes (Pospuesto)';
+        isDueThisCycle = true;
+      } else {
+        status = 'scheduled_future';
+        statusLabel = 'Pospuesto';
+        isDueThisCycle = false;
+      }
+
+      return { nextFriday: postponedDate, status, statusLabel, isDueThisCycle };
+    }
+  }
 
   const stepDays = frequency === 'weekly' ? 7 : frequency === 'monthly' ? 28 : 14;
 
